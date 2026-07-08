@@ -1,7 +1,6 @@
 package com.siberanka.twibosses.listeners;
 
 import com.siberanka.twibosses.TwiBosses;
-import com.siberanka.twibosses.manager.LanguageManager;
 import com.siberanka.twibosses.utils.ColorUtils;
 import io.lumine.mythic.bukkit.MythicBukkit;
 import io.lumine.mythic.bukkit.events.MythicMobSpawnEvent;
@@ -19,7 +18,6 @@ import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -89,7 +87,6 @@ implements Listener {
 
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
-        double lasthitDamage;
         UUID entityId = event.getEntity().getUniqueId();
         if (!this.markDeathProcessed(entityId)) {
             return;
@@ -127,24 +124,8 @@ implements Listener {
         }).collect(Collectors.toList());
         this.lastTopDamage.put(mobType, topList);
         Player lasthitPlayer = event.getEntity().getKiller();
-        if (this.plugin.getConfigManager().isLasthitRewardEnabled(mobType) && lasthitPlayer != null && (lasthitDamage = qualifiedDamage.getOrDefault(lasthitPlayer.getUniqueId(), 0.0).doubleValue()) >= this.plugin.getConfigManager().getLasthitMinDamage(mobType)) {
-            if (!this.plugin.getSecurityGuard().isSafePlayerName(lasthitPlayer.getName())) {
-                this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.skipped-unsafe-lasthit-player", LanguageManager.placeholders("player", lasthitPlayer.getName())));
-            } else {
-                int limit = this.plugin.getConfigManager().getMaxRewardCommandsPerRank();
-                int dispatched = 0;
-                for (String command : this.plugin.getConfigManager().getLasthitCommands(mobType)) {
-                    if (dispatched++ >= limit) {
-                        this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.lasthit-command-limit"));
-                        break;
-                    }
-                    this.dispatchRewardCommand(command, lasthitPlayer.getName());
-                }
-                Bukkit.broadcastMessage(this.plugin.getLanguageManager().get("rewards.lasthit-broadcast", LanguageManager.placeholders("player", lasthitPlayer.getName())));
-            }
-        }
         this.announcedThresholds.remove(entityId);
-        this.plugin.getRewardManager().handleMobDeath(mobType, qualifiedDamage, event.getEntity().getLocation());
+        this.plugin.getRewardManager().handleMobDeath(mobType, qualifiedDamage, event.getEntity().getLocation(), lasthitPlayer);
         this.rebuildMobAggregate(mobType);
         this.plugin.getSpawnManager().handleMobDeath(mobType, event.getEntity().getLocation());
     }
@@ -254,22 +235,6 @@ implements Listener {
         } else {
             this.mobDamageMap.put(mobType, aggregate);
         }
-    }
-
-    private void dispatchRewardCommand(String command, String playerName) {
-        if (!this.plugin.getSecurityGuard().isRewardCommandAllowed(command)) {
-            this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.blocked-lasthit-command", LanguageManager.placeholders("command", command)));
-            return;
-        }
-        String finalCommand = command.trim().replace("{player}", playerName);
-        if (finalCommand.startsWith("/")) {
-            finalCommand = finalCommand.substring(1);
-        }
-        if (!this.plugin.getSecurityGuard().isRewardCommandAllowed(finalCommand)) {
-            this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.blocked-lasthit-command-after-placeholder", LanguageManager.placeholders("command", command)));
-            return;
-        }
-        Bukkit.dispatchCommand((CommandSender)Bukkit.getConsoleSender(), (String)finalCommand);
     }
 
     public static class TopDamageEntry {

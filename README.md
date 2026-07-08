@@ -7,6 +7,9 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 - Per-boss damage tracking with top damage rankings
 - Entity UUID based boss sessions to prevent same-type boss reward desync
 - Rank, participation, and last-hit reward support
+- Boss-location item drops with optional player-private pickup ownership
+- Vanilla, MythicMobs, ItemsAdder, Nexo, and CraftEngine reward item providers
+- Damage-percentage based reward scaling for drop amounts
 - Reward command validation with allowlists, blocked fragments, command length limits, and player name checks
 - Manual spawn cooldowns and command rate limits
 - Respawn timers with persistent `data.yml` storage
@@ -22,10 +25,11 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 - MythicMobs
 - Optional: PlaceholderAPI
 - Optional: FancyHolograms or DecentHolograms
+- Optional: ItemsAdder, Nexo, or CraftEngine for custom reward drops
 
 ## Installation
 
-1. Download `TwiBosses-1.0.0.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.1.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml` and `plugins/TwiBosses/languages/*.yml`.
@@ -62,6 +66,42 @@ plugins/TwiBosses/config.yml
 ```
 
 `config.yml` controls mechanics, security limits, tracked mobs, rewards, spawn rules, webhook endpoints, hologram provider selection, metrics, and update checks.
+
+Rank rewards can use the legacy command list format or the structured format below. Structured rewards support console commands and physical drops at the boss death location.
+
+```yaml
+tracked-mobs:
+  EliteSkeleton:
+    rewards:
+      top-1:
+        min-damage: 0
+        min-percentage: 0
+        commands:
+          - "eco give {player} 5000"
+        drops:
+          - provider: VANILLA
+            item: DIAMOND
+            amount: 5
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 5
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
+```
+
+Supported drop providers:
+
+| Provider | Item id example | Notes |
+| --- | --- | --- |
+| `VANILLA` | `DIAMOND` | Uses Bukkit materials. |
+| `MYTHICMOBS` | `ExampleSword` | Uses MythicMobs item manager. |
+| `ITEMSADDER` | `namespace:item_id` | Uses ItemsAdder `CustomStack` when installed. |
+| `NEXO` | `item_id` | Uses Nexo `NexoItems` when installed. |
+| `CRAFTENGINE` | `namespace:item_id` | Uses CraftEngine API reflectively when installed. |
+
+`private: true` assigns the dropped item owner to the rewarded player through the Bukkit/Paper item owner API. This lets supported servers expose boss-location rewards only to the intended player while keeping the drop visible and natural.
 
 All editable text is stored in:
 
@@ -112,6 +152,9 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Reward commands are checked before and after placeholder replacement.
 - Unsafe reward command fragments are blocked.
 - Reward command count and length are limited.
+- Reward drop providers and item ids are validated before resolution.
+- Reward drops are capped per reward and per boss death.
+- Drop stack amounts, item id length, pickup delay, chance, and scaling are clamped.
 - Player names are validated before command dispatch.
 - Boss death processing is guarded against duplicate death events.
 - Damage tracking is keyed by entity UUID to avoid same-type boss desync.
@@ -129,7 +172,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.0.jar
+target/TwiBosses-1.0.1.jar
 ```
 
 ## Support

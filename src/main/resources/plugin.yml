@@ -8,6 +8,9 @@ softdepend:
   - PlaceholderAPI
   - FancyHolograms
   - DecentHolograms
+  - ItemsAdder
+  - Nexo
+  - CraftEngine
 commands:
   twiboss:
     description: Main command for TwiBosses

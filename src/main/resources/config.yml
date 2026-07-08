@@ -10,6 +10,13 @@ security:
     prevent-duplicate-alive-boss: true
   rewards:
     max-commands-per-rank: 8
+    max-rank-rewards: 100
+    max-drops-per-reward: 8
+    max-total-drops-per-boss: 96
+    max-drop-stack-amount: 64
+    max-item-id-length: 96
+    default-private-drops: true
+    default-pickup-delay-ticks: 20
     max-command-length: 180
     allowed-command-prefixes:
       - "give"
@@ -89,48 +96,170 @@ tracked-mobs:
         - "18:30:00"
     rewards:
       top-1:
-        - "give {player} diamond 5"
-        - "eco give {player} 5000"
+        # commands are executed by console after security validation.
+        # Available placeholders: {player}, {rank}, {position}, {damage}, {percentage}, {mobtype}, {mobname}, {killer}
+        commands:
+          - "give {player} diamond 5"
+          - "eco give {player} 5000"
+        # drops fall at the boss death location by default.
+        # provider: VANILLA, MYTHICMOBS, ITEMSADDER, NEXO, CRAFTENGINE
+        # private: true sets the dropped item owner to the rewarded player.
+        # amount-per-percent increases amount by floor(damage_percentage * value), capped by max-amount.
+        drops:
+          - provider: VANILLA
+            item: DIAMOND
+            amount: 5
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 5
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
       top-2:
-        - "give {player} diamond 3"
-        - "eco give {player} 3000"
+        commands:
+          - "give {player} diamond 3"
+          - "eco give {player} 3000"
+        drops:
+          - provider: VANILLA
+            item: DIAMOND
+            amount: 3
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 3
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
       top-3:
-        - "give {player} diamond 2"
-        - "eco give {player} 2000"
+        commands:
+          - "give {player} diamond 2"
+          - "eco give {player} 2000"
+        drops:
+          - provider: VANILLA
+            item: DIAMOND
+            amount: 2
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 2
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
     participation-reward:
       enabled: true
       min-damage: 200
       commands:
         - "give {player} diamond 1"
+      drops:
+        - provider: VANILLA
+          item: DIAMOND
+          amount: 1
+          chance: 1.0
+          amount-per-percent: 0.0
+          max-amount: 1
+          private: true
+          drop-at-boss: true
+          pickup-delay-ticks: 20
+          glow: false
     lasthit-reward:
       enabled: true
       min-damage: 200
       commands:
         - "give {player} diamond 1"
+      drops:
+        - provider: VANILLA
+          item: DIAMOND
+          amount: 1
+          chance: 1.0
+          amount-per-percent: 0.0
+          max-amount: 1
+          private: true
+          drop-at-boss: true
+          pickup-delay-ticks: 20
+          glow: false
   BossZombie:
     respawn:
       enabled: true
       time: 300
     rewards:
       top-1:
-        - "give {player} netherite_ingot 2"
-        - "eco give {player} 10000"
+        commands:
+          - "give {player} netherite_ingot 2"
+          - "eco give {player} 10000"
+        drops:
+          - provider: VANILLA
+            item: NETHERITE_INGOT
+            amount: 2
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 2
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
       top-2:
-        - "give {player} netherite_ingot 1"
-        - "eco give {player} 5000"
+        commands:
+          - "give {player} netherite_ingot 1"
+          - "eco give {player} 5000"
+        drops:
+          - provider: VANILLA
+            item: NETHERITE_INGOT
+            amount: 1
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 1
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
       top-3:
-        - "give {player} diamond 5"
-        - "eco give {player} 3000"
+        commands:
+          - "give {player} diamond 5"
+          - "eco give {player} 3000"
+        drops:
+          - provider: VANILLA
+            item: DIAMOND
+            amount: 5
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 5
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
     participation-reward:
       enabled: true
       min-damage: 200
       commands:
         - "give {player} diamond 1"
+      drops:
+        - provider: VANILLA
+          item: DIAMOND
+          amount: 1
+          chance: 1.0
+          amount-per-percent: 0.0
+          max-amount: 1
+          private: true
+          drop-at-boss: true
+          pickup-delay-ticks: 20
+          glow: false
     lasthit-reward:
       enabled: true
       min-damage: 200
       commands:
         - "give {player} diamond 1"
+      drops:
+        - provider: VANILLA
+          item: DIAMOND
+          amount: 1
+          chance: 1.0
+          amount-per-percent: 0.0
+          max-amount: 1
+          private: true
+          drop-at-boss: true
+          pickup-delay-ticks: 20
+          glow: false
 
 boss-spawn-conditions:
   enabled: true

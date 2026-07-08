@@ -16,6 +16,8 @@ import org.bukkit.entity.Player;
 
 public final class SecurityGuard {
     private static final Pattern PLAYER_NAME = Pattern.compile("^[A-Za-z0-9_]{1,16}$");
+    private static final Pattern REWARD_ITEM = Pattern.compile("^[A-Za-z0-9_:\\-.]{1,128}$");
+    private static final Pattern REWARD_PROVIDER = Pattern.compile("^[A-Za-z0-9_\\-]{1,32}$");
     private static final int WINDOW_MILLIS = 60_000;
 
     private final TwiBosses plugin;
@@ -54,6 +56,18 @@ public final class SecurityGuard {
 
     public boolean isSafePlayerName(String playerName) {
         return playerName != null && PLAYER_NAME.matcher(playerName).matches();
+    }
+
+    public boolean isSafeRewardItem(String provider, String itemId) {
+        if (provider == null || itemId == null) {
+            return false;
+        }
+        String cleanProvider = provider.trim();
+        String cleanItemId = itemId.trim();
+        return REWARD_PROVIDER.matcher(cleanProvider).matches()
+                && REWARD_ITEM.matcher(cleanItemId).matches()
+                && !cleanItemId.contains("..")
+                && cleanItemId.length() <= plugin.getConfigManager().getMaxRewardItemIdLength();
     }
 
     public boolean isRewardCommandAllowed(String command) {

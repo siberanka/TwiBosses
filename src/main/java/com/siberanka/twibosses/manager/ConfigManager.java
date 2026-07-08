@@ -1,6 +1,8 @@
 package com.siberanka.twibosses.manager;
 
 import com.siberanka.twibosses.TwiBosses;
+import com.siberanka.twibosses.rewards.RewardBundle;
+import com.siberanka.twibosses.rewards.RewardDrop;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -63,6 +65,9 @@ public class ConfigManager {
             defaultKeys.sort((left, right) -> Integer.compare(depth(left), depth(right)));
             for (String key : defaultKeys) {
                 Object expected = defaultConfig.get(key);
+                if (this.isLegacyRewardListPath(key, diskConfig)) {
+                    continue;
+                }
                 if (expected instanceof ConfigurationSection) {
                     if (!diskConfig.isConfigurationSection(key)) {
                         diskConfig.set(key, null);
@@ -299,9 +304,37 @@ public class ConfigManager {
                 if (!key.startsWith("top-")) continue;
                 try {
                     int pos = Integer.parseInt(key.substring(4));
-                    rewards.put(pos, section.getStringList(key));
+                    if (section.isList(key)) {
+                        rewards.put(pos, section.getStringList(key));
+                    } else {
+                        rewards.put(pos, section.getStringList(key + ".commands"));
+                    }
                 }
                 catch (NumberFormatException numberFormatException) {}
+            }
+        }
+        return rewards;
+    }
+
+    public Map<Integer, RewardBundle> getRankRewardBundles(String mobType) {
+        HashMap<Integer, RewardBundle> rewards = new HashMap<>();
+        String path = "tracked-mobs." + mobType + ".rewards";
+        ConfigurationSection section = this.config.getConfigurationSection(path);
+        if (section == null) {
+            return rewards;
+        }
+        int maxRanks = this.getMaxRewardRanks();
+        for (String key : section.getKeys(false)) {
+            if (!key.startsWith("top-")) {
+                continue;
+            }
+            try {
+                int position = Integer.parseInt(key.substring(4));
+                if (position < 1 || position > maxRanks) {
+                    continue;
+                }
+                rewards.put(position, this.readRewardBundle(path + "." + key));
+            } catch (NumberFormatException ignored) {
             }
         }
         return rewards;
@@ -319,6 +352,10 @@ public class ConfigManager {
         return this.config.getStringList("tracked-mobs." + mobType + ".participation-reward.commands");
     }
 
+    public RewardBundle getParticipationRewardBundle(String mobType) {
+        return this.readRewardBundle("tracked-mobs." + mobType + ".participation-reward");
+    }
+
     public boolean isLasthitRewardEnabled(String mobType) {
         return this.config.getBoolean("tracked-mobs." + mobType + ".lasthit-reward.enabled", false);
     }
@@ -329,6 +366,10 @@ public class ConfigManager {
 
     public List<String> getLasthitCommands(String mobType) {
         return this.config.getStringList("tracked-mobs." + mobType + ".lasthit-reward.commands");
+    }
+
+    public RewardBundle getLasthitRewardBundle(String mobType) {
+        return this.readRewardBundle("tracked-mobs." + mobType + ".lasthit-reward");
     }
 
     public boolean isKillRequirementEnabled(String bossType) {
@@ -423,6 +464,34 @@ public class ConfigManager {
         return Math.max(1, this.config.getInt("security.rewards.max-commands-per-rank", 8));
     }
 
+    public int getMaxRewardRanks() {
+        return Math.max(1, this.config.getInt("security.rewards.max-rank-rewards", 100));
+    }
+
+    public int getMaxDropsPerReward() {
+        return Math.max(0, this.config.getInt("security.rewards.max-drops-per-reward", 8));
+    }
+
+    public int getMaxTotalDropsPerBoss() {
+        return Math.max(0, this.config.getInt("security.rewards.max-total-drops-per-boss", 96));
+    }
+
+    public int getMaxDropStackAmount() {
+        return Math.max(1, Math.min(64, this.config.getInt("security.rewards.max-drop-stack-amount", 64)));
+    }
+
+    public int getMaxRewardItemIdLength() {
+        return Math.max(8, Math.min(128, this.config.getInt("security.rewards.max-item-id-length", 96)));
+    }
+
+    public boolean isPrivateDropDefault() {
+        return this.config.getBoolean("security.rewards.default-private-drops", true);
+    }
+
+    public int getDefaultPickupDelayTicks() {
+        return Math.max(0, Math.min(200, this.config.getInt("security.rewards.default-pickup-delay-ticks", 20)));
+    }
+
     public int getMaxRewardCommandLength() {
         return Math.max(40, this.config.getInt("security.rewards.max-command-length", 180));
     }
@@ -433,6 +502,55 @@ public class ConfigManager {
 
     public List<String> getBlockedRewardCommandFragments() {
         return this.config.getStringList("security.rewards.blocked-command-fragments");
+    }
+
+    private RewardBundle readRewardBundle(String path) {
+        if (this.config.isList(path)) {
+            return new RewardBundle(this.config.getStringList(path), Collections.emptyList(), 0.0, 0.0);
+        }
+        List<String> commands = this.config.getStringList(path + ".commands");
+        List<RewardDrop> drops = this.readRewardDrops(path + ".drops");
+        double minDamage = Math.max(0.0, this.config.getDouble(path + ".min-damage", 0.0));
+        double minPercentage = Math.max(0.0, Math.min(100.0, this.config.getDouble(path + ".min-percentage", 0.0)));
+        return new RewardBundle(commands, drops, minDamage, minPercentage);
+    }
+
+    private List<RewardDrop> readRewardDrops(String path) {
+        if (!this.config.isList(path)) {
+            return Collections.emptyList();
+        }
+        List<Map<?, ?>> rawDrops = this.config.getMapList(path);
+        if (rawDrops.isEmpty()) {
+            return Collections.emptyList();
+        }
+        int maxDrops = this.getMaxDropsPerReward();
+        if (maxDrops <= 0) {
+            return Collections.emptyList();
+        }
+        List<RewardDrop> drops = new ArrayList<>();
+        for (Map<?, ?> rawDrop : rawDrops) {
+            if (drops.size() >= maxDrops) {
+                break;
+            }
+            String provider = stringValue(rawDrop.get("provider"), "VANILLA").toUpperCase();
+            String item = stringValue(rawDrop.get("item"), "");
+            if (!this.plugin.getSecurityGuard().isSafeRewardItem(provider, item)) {
+                this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                        "logs.reward-drop-invalid",
+                        LanguageManager.placeholders("provider", provider, "item", item)));
+                continue;
+            }
+            int amount = clampInt(rawDrop.get("amount"), 1, 1, this.getMaxDropStackAmount());
+            double chance = clampDouble(rawDrop.get("chance"), 1.0, 0.0, 1.0);
+            double amountPerPercent = clampDouble(rawDrop.get("amount-per-percent"), 0.0, 0.0, this.getMaxDropStackAmount());
+            int maxAmount = clampInt(rawDrop.get("max-amount"), this.getMaxDropStackAmount(), 1, this.getMaxDropStackAmount());
+            boolean privateDrop = booleanValue(rawDrop.get("private"), this.isPrivateDropDefault());
+            boolean dropAtBoss = booleanValue(rawDrop.get("drop-at-boss"), true);
+            int pickupDelay = clampInt(rawDrop.get("pickup-delay-ticks"), this.getDefaultPickupDelayTicks(), 0, 200);
+            boolean glow = booleanValue(rawDrop.get("glow"), false);
+            drops.add(new RewardDrop(provider, item, amount, chance, amountPerPercent, maxAmount, privateDrop, dropAtBoss, pickupDelay, glow));
+        }
+        return drops;
     }
 
     public int getMaxWebhookContentLength() {
@@ -534,12 +652,26 @@ public class ConfigManager {
         if (relative.isEmpty()) {
             return true;
         }
-        return Set.of(
+        if (Set.of(
                 "respawn", "respawn.enabled", "respawn.time",
                 "spawn-time", "spawn-time.enable", "spawn-time.time",
                 "rewards", "participation-reward", "participation-reward.enabled", "participation-reward.min-damage", "participation-reward.commands",
                 "lasthit-reward", "lasthit-reward.enabled", "lasthit-reward.min-damage", "lasthit-reward.commands"
-        ).contains(relative) || relative.matches("rewards\\.top-[1-9][0-9]*");
+        ).contains(relative) || relative.matches("rewards\\.top-[1-9][0-9]*")) {
+            return true;
+        }
+        return relative.matches("rewards\\.top-[1-9][0-9]*\\.(commands|drops|min-damage|min-percentage)")
+                || relative.matches("participation-reward\\.(drops|min-percentage)")
+                || relative.matches("lasthit-reward\\.(drops|min-percentage)");
+    }
+
+    private boolean isLegacyRewardListPath(String path, YamlConfiguration diskConfig) {
+        String[] parts = path.split("\\.");
+        if (parts.length < 4 || !"tracked-mobs".equals(parts[0]) || !"rewards".equals(parts[2]) || !parts[3].matches("top-[1-9][0-9]*")) {
+            return false;
+        }
+        String rankPath = String.join(".", List.of(parts).subList(0, 4));
+        return diskConfig.isList(rankPath);
     }
 
     private boolean matchesBossConditionSchema(String path) {
@@ -619,6 +751,27 @@ public class ConfigManager {
             return value instanceof Boolean;
         }
         return value instanceof String;
+    }
+
+    private static String stringValue(Object value, String fallback) {
+        return value instanceof String string ? string.trim() : fallback;
+    }
+
+    private static boolean booleanValue(Object value, boolean fallback) {
+        return value instanceof Boolean bool ? bool : fallback;
+    }
+
+    private static int clampInt(Object value, int fallback, int min, int max) {
+        int result = value instanceof Number number ? number.intValue() : fallback;
+        return Math.max(min, Math.min(max, result));
+    }
+
+    private static double clampDouble(Object value, double fallback, double min, double max) {
+        double result = value instanceof Number number ? number.doubleValue() : fallback;
+        if (!Double.isFinite(result)) {
+            result = fallback;
+        }
+        return Math.max(min, Math.min(max, result));
     }
 
     private void logInfo(String path) {
