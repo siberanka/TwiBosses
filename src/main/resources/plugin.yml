@@ -12,6 +12,8 @@ softdepend:
   - Nexo
   - CraftEngine
   - floodgate
+  - Geyser-Spigot
+  - GeyserBukkit
   - ModelEngine
   - BetterModel
 commands:

@@ -177,7 +177,7 @@ logs:
   placeholderapi-enabled: "PlaceholderAPI entegrasyonu etkin."
   plugin-enabled: "Plugin başarıyla etkinleştirildi."
   plugin-enable-failed: "Plugin etkinleştirilirken beklenmeyen bir hata oluştu."
-  bedrock-visual-floodgate-missing: "Bedrock vanilla görünümü açık ama Floodgate bulunamadı; özellik devre dışı bırakıldı."
+  bedrock-visual-floodgate-missing: "Bedrock vanilla görünümü açık ama Floodgate veya Geyser API bulunamadı; özellik devre dışı bırakıldı."
   bedrock-visual-invalid-entity: "{mobtype} için geçersiz Bedrock görünüm entity'si: {entity}"
   bedrock-visual-invalid-equipment: "{mobtype} {slot} slotu için geçersiz Bedrock görünüm ekipmanı atlandı."
   bedrock-visual-created: "{mobtype} için Bedrock görünüm proxy'si {entity} olarak oluşturuldu."

@@ -1,8 +1,7 @@
 # TwiBosses boss configuration
 #
-# Configure tracked MythicMobs, respawn timers, rewards, permission rewards,
-# Bedrock vanilla visuals, and per-boss schedules here.
-# Global limits, integrations, display defaults, and security rules stay in config.yml.
+# Configure tracked MythicMobs, respawn timers, rewards, permission rewards, and per-boss schedules here.
+# Bedrock visual behavior is configured globally in config.yml; per-boss vanilla entity and equipment items are configured here.
 
 tracked-mobs:
   EliteSkeleton:
@@ -19,28 +18,9 @@ tracked-mobs:
         - "12:00:00"
         - "18:30:00"
     bedrock-visual:
-      # When enabled, Bedrock players see this boss as a vanilla mob instead of the Java model.
-      enabled: false
-      # Bukkit EntityType name shown to Bedrock players.
+      # Bukkit EntityType name shown to Bedrock players when the global Bedrock visual system is enabled.
       vanilla-entity: SKELETON
-      # auto detects common ModelEngine/BetterModel parts. Use true to force, false to disable model detection.
-      modeled: auto
-      # true keeps non-modeled MythicMobs unchanged for Bedrock players.
-      only-when-modeled: true
-      # Delay lets model providers create their parts before detection.
-      spawn-delay-ticks: 10
-      # Lower values follow the real boss more closely. Keep at 2+ for busy servers.
-      sync-interval-ticks: 2
-      model-check-radius: 4.0
-      hide-nearby-model-parts: true
-      model-part-hide-radius: 4.0
-      # Bedrock hits on the vanilla proxy are forwarded to the real MythicMob.
-      forward-proxy-damage: true
-      silent: true
-      name-visible: true
       equipment:
-        # Set enabled to false if Bedrock players should see a clean vanilla mob without held items or armor.
-        enabled: true
         main-hand:
           provider: VANILLA
           item: BOW
@@ -189,20 +169,8 @@ tracked-mobs:
       enabled: true
       time: 300
     bedrock-visual:
-      enabled: false
       vanilla-entity: ZOMBIE
-      modeled: auto
-      only-when-modeled: true
-      spawn-delay-ticks: 10
-      sync-interval-ticks: 2
-      model-check-radius: 4.0
-      hide-nearby-model-parts: true
-      model-part-hide-radius: 4.0
-      forward-proxy-damage: true
-      silent: true
-      name-visible: true
       equipment:
-        enabled: true
         main-hand:
           provider: VANILLA
           item: IRON_SWORD

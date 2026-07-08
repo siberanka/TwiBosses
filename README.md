@@ -10,7 +10,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 - Boss-location item drops with optional player-private pickup ownership
 - Vanilla, MythicMobs, ItemsAdder, Nexo, and CraftEngine reward item providers
 - Damage-percentage based reward scaling for drop amounts
-- Optional Floodgate-aware Bedrock vanilla boss visuals for modeled MythicMobs
+- Optional Geyser/Floodgate-aware Bedrock vanilla boss visuals for modeled MythicMobs
 - Reward command validation with allowlists, blocked fragments, command length limits, and player name checks
 - Manual spawn cooldowns and command rate limits
 - Respawn timers with persistent `data.yml` storage
@@ -28,12 +28,12 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 - Optional: PlaceholderAPI
 - Optional: FancyHolograms or DecentHolograms
 - Optional: ItemsAdder, Nexo, or CraftEngine for custom reward drops
-- Optional: Floodgate for Bedrock vanilla boss visuals
+- Optional: Floodgate or Geyser API for Bedrock vanilla boss visuals
 - Optional: ModelEngine or BetterModel when using modeled MythicMobs
 
 ## Installation
 
-1. Download `TwiBosses-1.0.9.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.10.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml`, `plugins/TwiBosses/bosses.yml`, and `plugins/TwiBosses/languages/*.yml`.
@@ -81,7 +81,7 @@ plugins/TwiBosses/config.yml
 | Section | Purpose |
 | --- | --- |
 | `settings` | Language and simple plugin-level preferences. |
-| `runtime` | Update checks, metrics, and rotating plugin error logs. |
+| `runtime` | Update checks, metrics, rotating plugin error logs, and optional diagnostic debug logs. |
 | `security` | Rate limits, command validation, reward limits, and anti-abuse caps. |
 | `integrations` | Holograms, Bedrock visual proxies, and Discord webhooks. |
 | `display` | Titles, action bar, top damage display, sounds, and hologram toggles. |
@@ -175,14 +175,25 @@ Supported drop providers:
 
 ## Bedrock Visuals
 
-TwiBosses can hide configured modeled MythicMobs from Floodgate players and show a synchronized vanilla mob proxy instead. Java players keep seeing the original MythicMobs, ModelEngine, or BetterModel presentation.
+TwiBosses can hide configured modeled MythicMobs from Bedrock players and show a synchronized vanilla mob proxy instead. Java players keep seeing the original MythicMobs, ModelEngine, or BetterModel presentation.
 
-This feature is disabled by default and requires Floodgate on the backend server:
+This feature is enabled in the default configuration and requires Floodgate or a compatible Geyser API on the backend server:
 
 ```yaml
 integrations:
   bedrock-visuals:
     enabled: true
+    defaults:
+      vanilla-entity: ZOMBIE
+      modeled: auto
+      only-when-modeled: true
+      fallback-when-model-undetected: true
+      spawn-delay-ticks: 10
+      sync-interval-ticks: 2
+      hide-nearby-model-parts: true
+      forward-proxy-damage: true
+      equipment:
+        enabled: true
     limits:
       visibility-refresh-interval-ticks: 20
       visibility-refresh-radius: 128.0
@@ -193,13 +204,8 @@ integrations:
 tracked-mobs:
   EliteSkeleton:
     bedrock-visual:
-      enabled: true
       vanilla-entity: SKELETON
-      modeled: auto
-      only-when-modeled: true
-      forward-proxy-damage: true
       equipment:
-        enabled: true
         main-hand:
           provider: VANILLA
           item: BOW
@@ -207,7 +213,9 @@ tracked-mobs:
         helmet: AIR
 ```
 
-`modeled: auto` checks common ModelEngine and BetterModel markers and nearby model part entities. Use `modeled: true` only when a specific boss must always use the Bedrock proxy. `only-when-modeled: true` keeps non-modeled MythicMobs unchanged for Bedrock players.
+Global Bedrock behavior lives under `config.yml -> integrations.bedrock-visuals`. Per-boss `bosses.yml -> tracked-mobs.<mob>.bedrock-visual` only selects the vanilla entity type and optional equipment shown to Bedrock players.
+
+`modeled: auto` checks common ModelEngine and BetterModel markers and nearby model part entities. `only-when-modeled: true` keeps non-modeled MythicMobs unchanged when model detection succeeds. `fallback-when-model-undetected: true` is a visibility fail-safe: if a configured boss still cannot be confirmed as modeled after the bounded retry window, TwiBosses creates the vanilla proxy anyway so Bedrock players are not left with an invisible boss.
 
 Visibility is refreshed for nearby players at a bounded interval. This covers bosses spawned before a Bedrock player enters the area, bosses spawned away from Bedrock players, delayed model parts, teleports, joins, and world changes without sending constant per-tick visibility work to every online player.
 
@@ -221,9 +229,22 @@ integrations:
       max-forwarded-damage: 1000.0
 ```
 
-`equipment.enabled: false` shows the Bedrock vanilla mob without configured held items or armor. When enabled, equipment slots support vanilla items and the same custom item providers used by reward drops: `VANILLA`, `MYTHICMOBS`, `ITEMSADDER`, `NEXO`, and `CRAFTENGINE`.
+`config.yml -> integrations.bedrock-visuals.defaults.equipment.enabled: false` shows the Bedrock vanilla mob without configured held items or armor. When enabled, equipment slots in `bosses.yml` support vanilla items and the same custom item providers used by reward drops: `VANILLA`, `MYTHICMOBS`, `ITEMSADDER`, `NEXO`, and `CRAFTENGINE`.
 
 The Bedrock proxy syncs position, yaw, pitch, fire state, configured equipment, visible health ratio, hurt animation, and death animation from the real boss session. Java players never receive the proxy view.
+
+For Bedrock visibility troubleshooting, enable the rotating diagnostic log temporarily:
+
+```yaml
+runtime:
+  logging:
+    debug-log:
+      enabled: true
+      max-size-kb: 1024
+      max-archives: 3
+```
+
+When enabled, TwiBosses writes `plugins/TwiBosses/debug.log` entries for bridge detection, Bedrock player checks, model detection attempts, fallback proxy creation, visibility hide/show decisions, model part hiding, proxy damage forwarding, and cleanup. Keep it disabled during normal gameplay.
 
 Discord webhook endpoints are configured in one place under `integrations.webhooks.mobs`:
 
@@ -298,6 +319,14 @@ runtime:
       max-archives: 3
 ```
 
+Short-lived diagnostics can be written to:
+
+```text
+plugins/TwiBosses/debug.log
+```
+
+`debug.log` is disabled by default, size-limited, and rotated with the same archive style. It is intended for investigating visibility, reload, integration, or reward-flow issues without flooding the normal console log.
+
 ## Placeholders
 
 TwiBosses registers the `twibosses` PlaceholderAPI expansion when PlaceholderAPI is installed.
@@ -326,6 +355,8 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Bedrock visual proxy damage is rate-limited and capped before forwarding to the real boss.
 - Bedrock visual visibility refresh is interval, radius, and viewer-count limited.
 - Bedrock model detection retries are bounded to cover delayed ModelEngine/BetterModel parts without runaway tasks.
+- Bedrock visual fallback proxy creation prevents invisible modeled bosses when model detection cannot confirm provider metadata.
+- Diagnostic debug logging is opt-in and size-capped.
 - Drop stack amounts, item id length, pickup delay, chance, and scaling are clamped.
 - Player names are validated before command dispatch.
 - Boss death processing is guarded against duplicate death events.
@@ -349,7 +380,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.9.jar
+target/TwiBosses-1.0.10.jar
 ```
 
 ## Support

@@ -26,6 +26,12 @@ runtime:
       max-size-kb: 1024
       # Number of rotated files to keep: error.log.1, error.log.2, ...
       max-archives: 3
+    debug-log:
+      # Writes detailed diagnostic steps to plugins/TwiBosses/debug.log.
+      # Keep this disabled during normal gameplay and enable it only while investigating.
+      enabled: false
+      max-size-kb: 1024
+      max-archives: 3
 
 security:
   commands:
@@ -75,8 +81,33 @@ integrations:
     # NONE, FANCY, or DECENT.
     provider: NONE
   bedrock-visuals:
-    # Requires Floodgate on the backend server. Java players keep seeing the original MythicMob/model.
-    enabled: false
+    # Enabled by default. Requires Floodgate or a compatible Geyser API on the backend server.
+    # Java players keep seeing the original MythicMob/model.
+    enabled: true
+    defaults:
+      # Fallback Bukkit EntityType when a boss does not override vanilla-entity in bosses.yml.
+      vanilla-entity: ZOMBIE
+      # auto detects common ModelEngine/BetterModel parts. true forces proxies, false disables model detection.
+      modeled: auto
+      # true keeps non-modeled MythicMobs unchanged for Bedrock players.
+      only-when-modeled: true
+      # If auto detection cannot confirm a model after retries, create the vanilla proxy anyway.
+      # Keep true when Bedrock visibility is more important than strictly preserving non-modeled MythicMobs.
+      fallback-when-model-undetected: true
+      # Delay lets model providers create their parts before detection.
+      spawn-delay-ticks: 10
+      # Lower values follow the real boss more closely. Keep at 2+ for busy servers.
+      sync-interval-ticks: 2
+      model-check-radius: 4.0
+      hide-nearby-model-parts: true
+      model-part-hide-radius: 4.0
+      # Bedrock hits on the vanilla proxy are forwarded to the real MythicMob.
+      forward-proxy-damage: true
+      silent: true
+      name-visible: true
+      equipment:
+        # Set false if Bedrock players should see vanilla mobs without held items or armor.
+        enabled: true
     limits:
       # Limits how quickly one Bedrock player can forward hits from a visual proxy to the real boss.
       max-proxy-hits-per-player-per-second: 8

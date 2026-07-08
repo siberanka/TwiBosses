@@ -177,7 +177,7 @@ logs:
   placeholderapi-enabled: "Integración con PlaceholderAPI activada."
   plugin-enabled: "Plugin activado correctamente."
   plugin-enable-failed: "Ocurrió un error inesperado al activar el plugin."
-  bedrock-visual-floodgate-missing: "Los visuales vanilla para Bedrock están activados, pero Floodgate no está disponible; función desactivada."
+  bedrock-visual-floodgate-missing: "Los visuales vanilla para Bedrock están activados, pero Floodgate o la API de Geyser no está disponible; función desactivada."
   bedrock-visual-invalid-entity: "Entidad visual Bedrock inválida para {mobtype}: {entity}"
   bedrock-visual-invalid-equipment: "Equipo visual Bedrock inválido omitido para {mobtype}, ranura {slot}."
   bedrock-visual-created: "Proxy visual Bedrock creado para {mobtype} como {entity}."

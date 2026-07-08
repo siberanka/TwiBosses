@@ -625,6 +625,18 @@ public class ConfigManager {
         return Math.max(1, Math.min(10, this.intWithLegacy("runtime.logging.error-log.max-archives", "logging.error-log.max-archives", 3)));
     }
 
+    public boolean isDebugLogEnabled() {
+        return this.config.getBoolean("runtime.logging.debug-log.enabled", false);
+    }
+
+    public int getDebugLogMaxSizeKb() {
+        return Math.max(64, Math.min(16_384, this.config.getInt("runtime.logging.debug-log.max-size-kb", 1024)));
+    }
+
+    public int getDebugLogMaxArchives() {
+        return Math.max(1, Math.min(10, this.config.getInt("runtime.logging.debug-log.max-archives", 3)));
+    }
+
     public int getMaxPlayerCommandsPerMinute() {
         return Math.max(1, this.config.getInt("security.commands.max-per-player-per-minute", 12));
     }
@@ -716,15 +728,16 @@ public class ConfigManager {
     }
 
     public boolean isBedrockVisualsEnabled() {
-        return this.booleanWithLegacy("integrations.bedrock-visuals.enabled", "bedrock-visuals.enabled", false);
+        return this.booleanWithLegacy("integrations.bedrock-visuals.enabled", "bedrock-visuals.enabled", true);
     }
 
     public boolean isBedrockVisualEnabled(String mobType) {
-        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.enabled", false);
+        return this.isBedrockVisualsEnabled();
     }
 
     public EntityType getBedrockVisualEntityType(String mobType) {
-        String configured = this.bossesConfig.getString("tracked-mobs." + mobType + ".bedrock-visual.vanilla-entity", "ZOMBIE");
+        String fallback = this.config.getString("integrations.bedrock-visuals.defaults.vanilla-entity", "ZOMBIE");
+        String configured = this.bossesConfig.getString("tracked-mobs." + mobType + ".bedrock-visual.vanilla-entity", fallback);
         try {
             return EntityType.valueOf(configured == null ? "ZOMBIE" : configured.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
@@ -733,7 +746,7 @@ public class ConfigManager {
     }
 
     public String getBedrockVisualModelMode(String mobType) {
-        Object value = this.bossesConfig.get("tracked-mobs." + mobType + ".bedrock-visual.modeled");
+        Object value = this.config.get("integrations.bedrock-visuals.defaults.modeled");
         if (value instanceof Boolean bool) {
             return bool ? "true" : "false";
         }
@@ -746,43 +759,47 @@ public class ConfigManager {
     }
 
     public boolean shouldOnlyUseBedrockVisualWhenModeled(String mobType) {
-        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.only-when-modeled", true);
+        return this.config.getBoolean("integrations.bedrock-visuals.defaults.only-when-modeled", true);
+    }
+
+    public boolean shouldFallbackBedrockVisualWhenModelUndetected(String mobType) {
+        return this.config.getBoolean("integrations.bedrock-visuals.defaults.fallback-when-model-undetected", true);
     }
 
     public int getBedrockVisualSpawnDelayTicks(String mobType) {
-        return Math.max(1, Math.min(200, this.bossesConfig.getInt("tracked-mobs." + mobType + ".bedrock-visual.spawn-delay-ticks", 10)));
+        return Math.max(1, Math.min(200, this.config.getInt("integrations.bedrock-visuals.defaults.spawn-delay-ticks", 10)));
     }
 
     public int getBedrockVisualSyncIntervalTicks(String mobType) {
-        return Math.max(1, Math.min(40, this.bossesConfig.getInt("tracked-mobs." + mobType + ".bedrock-visual.sync-interval-ticks", 2)));
+        return Math.max(1, Math.min(40, this.config.getInt("integrations.bedrock-visuals.defaults.sync-interval-ticks", 2)));
     }
 
     public double getBedrockVisualModelCheckRadius(String mobType) {
-        return this.clampedBedrockRadius(this.bossesConfig, "tracked-mobs." + mobType + ".bedrock-visual.model-check-radius", 4.0);
+        return this.clampedBedrockRadius(this.config, "integrations.bedrock-visuals.defaults.model-check-radius", 4.0);
     }
 
     public boolean shouldHideNearbyModelParts(String mobType) {
-        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.hide-nearby-model-parts", true);
+        return this.config.getBoolean("integrations.bedrock-visuals.defaults.hide-nearby-model-parts", true);
     }
 
     public double getModelPartHideRadius(String mobType) {
-        return this.clampedBedrockRadius(this.bossesConfig, "tracked-mobs." + mobType + ".bedrock-visual.model-part-hide-radius", 4.0);
+        return this.clampedBedrockRadius(this.config, "integrations.bedrock-visuals.defaults.model-part-hide-radius", 4.0);
     }
 
     public boolean shouldForwardBedrockProxyDamage(String mobType) {
-        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.forward-proxy-damage", true);
+        return this.config.getBoolean("integrations.bedrock-visuals.defaults.forward-proxy-damage", true);
     }
 
     public boolean isBedrockVisualSilent(String mobType) {
-        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.silent", true);
+        return this.config.getBoolean("integrations.bedrock-visuals.defaults.silent", true);
     }
 
     public boolean isBedrockVisualNameVisible(String mobType) {
-        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.name-visible", true);
+        return this.config.getBoolean("integrations.bedrock-visuals.defaults.name-visible", true);
     }
 
     public boolean isBedrockVisualEquipmentEnabled(String mobType) {
-        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.equipment.enabled", true);
+        return this.config.getBoolean("integrations.bedrock-visuals.defaults.equipment.enabled", true);
     }
 
     public int getBedrockVisualVisibilityRefreshIntervalTicks() {
@@ -1009,8 +1026,19 @@ public class ConfigManager {
         changed |= this.copyIfPresent(config, "logging.error-log", "runtime.logging.error-log");
         changed |= this.copyIfPresent(config, "hologram.provider", "integrations.holograms.provider");
         changed |= this.copyIfPresent(config, "bedrock-visuals.enabled", "integrations.bedrock-visuals.enabled");
+        if (config.contains("integrations.bedrock-visuals.enabled")
+                && !config.contains("integrations.bedrock-visuals.defaults")
+                && !config.getBoolean("integrations.bedrock-visuals.enabled", true)) {
+            config.set("integrations.bedrock-visuals.enabled", true);
+            changed = true;
+        }
         changed |= this.copyIfPresent(config, "security.bedrock-visuals.max-proxy-hits-per-player-per-second", "integrations.bedrock-visuals.limits.max-proxy-hits-per-player-per-second");
         changed |= this.copyIfPresent(config, "security.bedrock-visuals.max-forwarded-damage", "integrations.bedrock-visuals.limits.max-forwarded-damage");
+        changed |= this.copyIfPresent(config, "security.bedrock-visuals.visibility-refresh-interval-ticks", "integrations.bedrock-visuals.limits.visibility-refresh-interval-ticks");
+        changed |= this.copyIfPresent(config, "security.bedrock-visuals.visibility-refresh-radius", "integrations.bedrock-visuals.limits.visibility-refresh-radius");
+        changed |= this.copyIfPresent(config, "security.bedrock-visuals.max-viewers-per-refresh", "integrations.bedrock-visuals.limits.max-viewers-per-refresh");
+        changed |= this.copyIfPresent(config, "security.bedrock-visuals.model-detection-retries", "integrations.bedrock-visuals.limits.model-detection-retries");
+        changed |= this.copyIfPresent(config, "security.bedrock-visuals.model-detection-retry-interval-ticks", "integrations.bedrock-visuals.limits.model-detection-retry-interval-ticks");
         changed |= this.copyIfPresent(config, "security.webhooks.max-content-length", "integrations.webhooks.limits.max-content-length");
         changed |= this.copyIfPresent(config, "security.webhooks.max-field-length", "integrations.webhooks.limits.max-field-length");
         changed |= this.copyIfPresent(config, "security.webhooks.connect-timeout-ms", "integrations.webhooks.limits.connect-timeout-ms");
@@ -1083,11 +1111,7 @@ public class ConfigManager {
                 "rewards", "participation-reward", "participation-reward.enabled", "participation-reward.min-damage", "participation-reward.commands",
                 "lasthit-reward", "lasthit-reward.enabled", "lasthit-reward.min-damage", "lasthit-reward.commands",
                 "permission-rewards", "permission-rewards.enabled", "permission-rewards.stop-after-first-match", "permission-rewards.rewards",
-                "bedrock-visual", "bedrock-visual.enabled", "bedrock-visual.vanilla-entity", "bedrock-visual.modeled",
-                "bedrock-visual.only-when-modeled", "bedrock-visual.spawn-delay-ticks", "bedrock-visual.sync-interval-ticks",
-                "bedrock-visual.model-check-radius", "bedrock-visual.hide-nearby-model-parts", "bedrock-visual.model-part-hide-radius",
-                "bedrock-visual.forward-proxy-damage", "bedrock-visual.silent", "bedrock-visual.name-visible", "bedrock-visual.equipment",
-                "bedrock-visual.equipment.enabled",
+                "bedrock-visual", "bedrock-visual.vanilla-entity", "bedrock-visual.equipment",
                 "bedrock-visual.equipment.main-hand", "bedrock-visual.equipment.off-hand", "bedrock-visual.equipment.helmet",
                 "bedrock-visual.equipment.chestplate", "bedrock-visual.equipment.leggings", "bedrock-visual.equipment.boots"
         ).contains(relative) || relative.matches("rewards\\.top-[1-9][0-9]*")) {

@@ -5,6 +5,7 @@ import com.siberanka.twibosses.listeners.DamageTracker;
 import com.siberanka.twibosses.listeners.KillTracker;
 import com.siberanka.twibosses.manager.ConfigManager;
 import com.siberanka.twibosses.manager.BedrockVisualManager;
+import com.siberanka.twibosses.manager.DebugLogManager;
 import com.siberanka.twibosses.manager.DisplayManager;
 import com.siberanka.twibosses.manager.ErrorLogManager;
 import com.siberanka.twibosses.manager.HologramManager;
@@ -37,6 +38,7 @@ extends JavaPlugin {
     private SecurityGuard securityGuard;
     private LanguageManager languageManager;
     private ErrorLogManager errorLogManager;
+    private DebugLogManager debugLogManager;
     private BedrockVisualManager bedrockVisualManager;
 
     public void onEnable() {
@@ -59,6 +61,8 @@ extends JavaPlugin {
     private void enablePlugin() {
         this.configManager = new ConfigManager(this);
         this.errorLogManager.reload();
+        this.debugLogManager = new DebugLogManager(this);
+        this.debugLogManager.reload();
         this.languageManager = new LanguageManager(this);
         if (!VersionSupport.isSupported()) {
             this.getLogger().severe(this.languageManager.raw("logs.unsupported-version"));
@@ -140,6 +144,9 @@ extends JavaPlugin {
         if (this.errorLogManager != null) {
             this.errorLogManager.reload();
         }
+        if (this.debugLogManager != null) {
+            this.debugLogManager.reload();
+        }
         this.languageManager.reload();
         if (this.displayManager != null) {
             this.displayManager.reload();
@@ -200,9 +207,19 @@ extends JavaPlugin {
         return this.errorLogManager;
     }
 
+    public DebugLogManager getDebugLogManager() {
+        return this.debugLogManager;
+    }
+
     public void logError(String message, Throwable throwable) {
         if (this.errorLogManager != null) {
             this.errorLogManager.log(message, throwable);
+        }
+    }
+
+    public void debug(String category, String message) {
+        if (this.debugLogManager != null) {
+            this.debugLogManager.log(category, message);
         }
     }
 

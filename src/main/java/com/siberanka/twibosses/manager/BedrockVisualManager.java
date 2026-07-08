@@ -55,7 +55,7 @@ public final class BedrockVisualManager implements Listener {
     private final Map<UUID, Deque<Long>> proxyHitWindows = new HashMap<>();
     private final Map<UUID, BukkitTask> pendingSessionTasks = new HashMap<>();
     private BukkitTask cleanupTask;
-    private boolean floodgateUnavailableLogged;
+    private boolean bedrockBridgeUnavailableLogged;
 
     public BedrockVisualManager(TwiBosses plugin) {
         this.plugin = plugin;
@@ -64,20 +64,30 @@ public final class BedrockVisualManager implements Listener {
     }
 
     public void registerBoss(String mobType, Entity entity) {
-        if (!(entity instanceof LivingEntity livingEntity)
-                || !this.plugin.getConfigManager().isBedrockVisualsEnabled()
-                || !this.plugin.getConfigManager().isBedrockVisualEnabled(mobType)) {
+        if (!(entity instanceof LivingEntity livingEntity)) {
+            this.debug("register skipped mobType=" + mobType + " reason=not_living entity=" + this.entityInfo(entity));
             return;
         }
-        if (!this.hasFloodgate()) {
-            this.logFloodgateMissingOnce();
+        if (!this.plugin.getConfigManager().isBedrockVisualsEnabled()) {
+            this.debug("register skipped mobType=" + mobType + " reason=global_disabled original=" + this.entityInfo(livingEntity));
+            return;
+        }
+        if (!this.plugin.getConfigManager().isBedrockVisualEnabled(mobType)) {
+            this.debug("register skipped mobType=" + mobType + " reason=mob_disabled original=" + this.entityInfo(livingEntity));
+            return;
+        }
+        if (!this.hasBedrockBridge()) {
+            this.logBedrockBridgeMissingOnce();
+            this.debug("register skipped mobType=" + mobType + " reason=bedrock_bridge_missing original=" + this.entityInfo(livingEntity));
             return;
         }
         UUID entityId = livingEntity.getUniqueId();
         if (this.sessionsByOriginal.containsKey(entityId) || this.pendingSessionTasks.containsKey(entityId)) {
+            this.debug("register skipped mobType=" + mobType + " reason=already_registered_or_pending original=" + this.entityInfo(livingEntity));
             return;
         }
         long delay = this.plugin.getConfigManager().getBedrockVisualSpawnDelayTicks(mobType);
+        this.debug("register scheduled mobType=" + mobType + " delayTicks=" + delay + " original=" + this.entityInfo(livingEntity));
         this.scheduleSessionCreate(mobType, livingEntity, delay, 0);
     }
 
@@ -116,9 +126,11 @@ public final class BedrockVisualManager implements Listener {
 
     public void reload() {
         if (!this.plugin.getConfigManager().isBedrockVisualsEnabled()) {
+            this.debug("reload requested but bedrock visuals are disabled; cleaning sessions");
             this.cleanup();
             return;
         }
+        this.debug("reload rebuilding sessions currentSessions=" + this.sessionsByOriginal.size() + " pending=" + this.pendingSessionTasks.size());
         for (VisualSession session : new ArrayList<>(this.sessionsByOriginal.values())) {
             this.destroySession(session, false);
         }
@@ -136,9 +148,11 @@ public final class BedrockVisualManager implements Listener {
         for (Player player : Bukkit.getOnlinePlayers()) {
             this.applyVisibility(player);
         }
+        this.debug("reload complete sessions=" + this.sessionsByOriginal.size() + " onlinePlayers=" + Bukkit.getOnlinePlayers().size());
     }
 
     public void cleanup() {
+        this.debug("cleanup sessions=" + this.sessionsByOriginal.size() + " pending=" + this.pendingSessionTasks.size());
         if (this.cleanupTask != null) {
             this.cleanupTask.cancel();
             this.cleanupTask = null;
@@ -178,22 +192,35 @@ public final class BedrockVisualManager implements Listener {
         }
         event.setCancelled(true);
         if (!this.plugin.getConfigManager().shouldForwardBedrockProxyDamage(session.mobType())) {
+            this.debug("proxy damage blocked reason=forwarding_disabled mobType=" + session.mobType() + " proxy=" + this.entityInfo(session.proxy()));
             return;
         }
         Entity source = event.getDamager();
         Player player = this.resolvePlayer(source);
-        if (player == null || !this.isFloodgatePlayer(player) || !this.allowProxyHit(player.getUniqueId())) {
+        if (player == null) {
+            this.debug("proxy damage blocked reason=no_player_source source=" + this.entityInfo(source) + " proxy=" + this.entityInfo(session.proxy()));
+            return;
+        }
+        if (!this.isBedrockPlayer(player)) {
+            this.debug("proxy damage blocked reason=not_bedrock player=" + this.playerInfo(player) + " proxy=" + this.entityInfo(session.proxy()));
+            return;
+        }
+        if (!this.allowProxyHit(player.getUniqueId())) {
+            this.debug("proxy damage blocked reason=rate_limited player=" + this.playerInfo(player) + " proxy=" + this.entityInfo(session.proxy()));
             return;
         }
         LivingEntity original = session.original();
         if (!this.isValidLiving(original) || original.isDead()) {
+            this.debug("proxy damage blocked reason=original_invalid mobType=" + session.mobType() + " original=" + this.entityInfo(original));
             this.destroySession(session);
             return;
         }
         double damage = Math.max(0.0, Math.min(event.getFinalDamage(), this.plugin.getConfigManager().getMaxForwardedBedrockProxyDamage()));
         if (damage <= 0.0) {
+            this.debug("proxy damage blocked reason=non_positive_damage player=" + this.playerInfo(player) + " finalDamage=" + event.getFinalDamage());
             return;
         }
+        this.debug("proxy damage forwarded player=" + this.playerInfo(player) + " mobType=" + session.mobType() + " damage=" + damage + " original=" + this.entityInfo(original));
         this.plugin.getServer().getScheduler().runTask((Plugin)this.plugin, () -> {
             if (this.isValidLiving(original) && !original.isDead()) {
                 original.damage(damage, source);
@@ -229,6 +256,7 @@ public final class BedrockVisualManager implements Listener {
     }
 
     private void scheduleSessionCreate(String mobType, LivingEntity original, long delay, int attempt) {
+        this.debug("session create scheduled mobType=" + mobType + " attempt=" + attempt + " delayTicks=" + delay + " original=" + this.entityInfo(original));
         BukkitTask task = this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
             this.pendingSessionTasks.remove(original.getUniqueId());
             this.createSession(mobType, original, attempt);
@@ -237,31 +265,55 @@ public final class BedrockVisualManager implements Listener {
     }
 
     private void createSession(String mobType, LivingEntity original, int attempt) {
-        if (!this.isValidLiving(original)
-                || original.isDead()
-                || this.sessionsByOriginal.containsKey(original.getUniqueId())
-                || !this.plugin.getConfigManager().isBedrockVisualsEnabled()
-                || !this.plugin.getConfigManager().isBedrockVisualEnabled(mobType)) {
+        if (!this.isValidLiving(original)) {
+            this.debug("session create skipped mobType=" + mobType + " attempt=" + attempt + " reason=original_invalid original=" + this.entityInfo(original));
             return;
         }
-        if (this.plugin.getConfigManager().shouldOnlyUseBedrockVisualWhenModeled(mobType) && !this.isModeledBoss(original, mobType)) {
-            this.retrySessionCreateIfNeeded(mobType, original, attempt);
+        if (original.isDead()) {
+            this.debug("session create skipped mobType=" + mobType + " attempt=" + attempt + " reason=original_dead original=" + this.entityInfo(original));
             return;
+        }
+        if (this.sessionsByOriginal.containsKey(original.getUniqueId())) {
+            this.debug("session create skipped mobType=" + mobType + " attempt=" + attempt + " reason=session_exists original=" + this.entityInfo(original));
+            return;
+        }
+        if (!this.plugin.getConfigManager().isBedrockVisualsEnabled()) {
+            this.debug("session create skipped mobType=" + mobType + " attempt=" + attempt + " reason=global_disabled original=" + this.entityInfo(original));
+            return;
+        }
+        if (!this.plugin.getConfigManager().isBedrockVisualEnabled(mobType)) {
+            this.debug("session create skipped mobType=" + mobType + " attempt=" + attempt + " reason=mob_disabled original=" + this.entityInfo(original));
+            return;
+        }
+        boolean requiresModel = this.plugin.getConfigManager().shouldOnlyUseBedrockVisualWhenModeled(mobType);
+        boolean modeled = this.isModeledBoss(original, mobType);
+        this.debug("session create model check mobType=" + mobType + " attempt=" + attempt + " requiresModel=" + requiresModel + " modeled=" + modeled + " original=" + this.entityInfo(original));
+        if (requiresModel && !modeled) {
+            int maxRetries = this.plugin.getConfigManager().getBedrockVisualModelDetectionRetries();
+            if (attempt >= maxRetries && this.plugin.getConfigManager().shouldFallbackBedrockVisualWhenModelUndetected(mobType)) {
+                this.debug("session create continuing with fallback mobType=" + mobType + " attempt=" + attempt + " maxRetries=" + maxRetries + " reason=model_undetected");
+            } else {
+                this.retrySessionCreateIfNeeded(mobType, original, attempt);
+                return;
+            }
         }
         EntityType proxyType = this.plugin.getConfigManager().getBedrockVisualEntityType(mobType);
         if (proxyType == null || !proxyType.isAlive() || !proxyType.isSpawnable()) {
             this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
                     "logs.bedrock-visual-invalid-entity",
                     LanguageManager.placeholders("mobtype", mobType, "entity", String.valueOf(proxyType))));
+            this.debug("session create skipped mobType=" + mobType + " attempt=" + attempt + " reason=invalid_proxy_type type=" + proxyType);
             return;
         }
         Location spawnLocation = original.getLocation();
         World world = spawnLocation.getWorld();
         if (world == null) {
+            this.debug("session create skipped mobType=" + mobType + " attempt=" + attempt + " reason=world_null original=" + this.entityInfo(original));
             return;
         }
         Entity spawned = world.spawnEntity(spawnLocation, proxyType);
         if (!(spawned instanceof LivingEntity proxy)) {
+            this.debug("session create skipped mobType=" + mobType + " attempt=" + attempt + " reason=spawned_not_living proxy=" + this.entityInfo(spawned));
             spawned.remove();
             return;
         }
@@ -273,13 +325,16 @@ public final class BedrockVisualManager implements Listener {
         this.plugin.getLogger().info(this.plugin.getLanguageManager().raw(
                 "logs.bedrock-visual-created",
                 LanguageManager.placeholders("mobtype", mobType, "entity", proxyType.name())));
+        this.debug("session created mobType=" + mobType + " proxyType=" + proxyType.name() + " original=" + this.entityInfo(original) + " proxy=" + this.entityInfo(proxy));
     }
 
     private void retrySessionCreateIfNeeded(String mobType, LivingEntity original, int attempt) {
         int maxRetries = this.plugin.getConfigManager().getBedrockVisualModelDetectionRetries();
         if (attempt >= maxRetries || !this.isValidLiving(original) || original.isDead()) {
+            this.debug("session create stopped mobType=" + mobType + " attempt=" + attempt + " maxRetries=" + maxRetries + " reason=model_not_detected_or_original_invalid original=" + this.entityInfo(original));
             return;
         }
+        this.debug("session create retry mobType=" + mobType + " nextAttempt=" + (attempt + 1) + " maxRetries=" + maxRetries + " original=" + this.entityInfo(original));
         this.scheduleSessionCreate(mobType, original, this.plugin.getConfigManager().getBedrockVisualModelDetectionRetryIntervalTicks(), attempt + 1);
     }
 
@@ -293,12 +348,18 @@ public final class BedrockVisualManager implements Listener {
             public void run() {
                 if (!BedrockVisualManager.this.isValidLiving(original) || original.isDead()
                         || !BedrockVisualManager.this.isValidLiving(proxy) || proxy.isDead()) {
+                    BedrockVisualManager.this.debug("sync stopped reason=invalid_or_dead mobType=" + mobType
+                            + " original=" + BedrockVisualManager.this.entityInfo(original)
+                            + " proxy=" + BedrockVisualManager.this.entityInfo(proxy));
                     this.cancel();
                     BedrockVisualManager.this.unregisterBoss(original);
                     return;
                 }
                 Location originalLocation = original.getLocation();
                 if (originalLocation.getWorld() == null || !originalLocation.getWorld().equals(proxy.getWorld())) {
+                    BedrockVisualManager.this.debug("sync stopped reason=world_mismatch mobType=" + mobType
+                            + " original=" + BedrockVisualManager.this.entityInfo(original)
+                            + " proxy=" + BedrockVisualManager.this.entityInfo(proxy));
                     this.cancel();
                     BedrockVisualManager.this.unregisterBoss(original);
                     return;
@@ -393,12 +454,14 @@ public final class BedrockVisualManager implements Listener {
                 break;
             }
             if (!this.shouldRefreshVisibilityFor(player, session, radiusSquared)) {
+                this.debug("visibility skipped reason=outside_refresh_scope player=" + this.playerInfo(player) + " mobType=" + session.mobType() + " original=" + this.entityInfo(session.original()));
                 continue;
             }
             this.applyVisibility(player, session);
             processed++;
         }
         this.pruneModelPartIds(session);
+        this.debug("visibility refresh mobType=" + session.mobType() + " processed=" + processed + " limit=" + limit + " radius=" + radius);
     }
 
     private void applyVisibility(Player player) {
@@ -412,18 +475,24 @@ public final class BedrockVisualManager implements Listener {
             return;
         }
         if (!this.isValidLiving(session.original()) || !this.isValidLiving(session.proxy())) {
+            this.debug("visibility skipped reason=session_invalid player=" + this.playerInfo(player) + " mobType=" + session.mobType()
+                    + " original=" + this.entityInfo(session.original()) + " proxy=" + this.entityInfo(session.proxy()));
             return;
         }
-        if (this.isFloodgatePlayer(player)) {
+        if (this.isBedrockPlayer(player)) {
             player.hideEntity((Plugin)this.plugin, session.original());
             player.showEntity((Plugin)this.plugin, session.proxy());
+            int hiddenParts = 0;
             if (this.plugin.getConfigManager().shouldHideNearbyModelParts(session.mobType())) {
                 for (Entity part : this.findModelPartCandidates(session.original(), session.mobType(),
                         this.plugin.getConfigManager().getModelPartHideRadius(session.mobType()))) {
                     session.modelPartIds().add(part.getUniqueId());
                     player.hideEntity((Plugin)this.plugin, part);
+                    hiddenParts++;
                 }
             }
+            this.debug("visibility applied target=bedrock player=" + this.playerInfo(player) + " mobType=" + session.mobType()
+                    + " hiddenOriginal=true shownProxy=true hiddenModelParts=" + hiddenParts);
             return;
         }
         player.showEntity((Plugin)this.plugin, session.original());
@@ -434,6 +503,8 @@ public final class BedrockVisualManager implements Listener {
                 player.showEntity((Plugin)this.plugin, modelPart);
             }
         }
+        this.debug("visibility applied target=java player=" + this.playerInfo(player) + " mobType=" + session.mobType()
+                + " shownOriginal=true hiddenProxy=true restoredModelParts=" + session.modelPartIds().size());
     }
 
     private boolean shouldRefreshVisibilityFor(Player player, VisualSession session, double radiusSquared) {
@@ -457,17 +528,22 @@ public final class BedrockVisualManager implements Listener {
 
     private boolean isModeledBoss(LivingEntity original, String mobType) {
         if (this.plugin.getConfigManager().isBedrockVisualModelForced(mobType)) {
+            this.debug("model detection mobType=" + mobType + " result=true reason=forced original=" + this.entityInfo(original));
             return true;
         }
         String mode = this.plugin.getConfigManager().getBedrockVisualModelMode(mobType);
         if ("false".equals(mode) || "none".equals(mode) || "vanilla".equals(mode)) {
+            this.debug("model detection mobType=" + mobType + " result=false reason=mode_disabled mode=" + mode + " original=" + this.entityInfo(original));
             return false;
         }
         if (this.hasKnownModelMarker(original)) {
+            this.debug("model detection mobType=" + mobType + " result=true reason=known_marker_on_original original=" + this.entityInfo(original));
             return true;
         }
         double radius = this.plugin.getConfigManager().getBedrockVisualModelCheckRadius(mobType);
-        return !this.findModelPartCandidates(original, mobType, radius).isEmpty();
+        Collection<Entity> parts = this.findModelPartCandidates(original, mobType, radius);
+        this.debug("model detection mobType=" + mobType + " result=" + !parts.isEmpty() + " reason=nearby_parts count=" + parts.size() + " radius=" + radius + " original=" + this.entityInfo(original));
+        return !parts.isEmpty();
     }
 
     private Collection<Entity> findModelPartCandidates(LivingEntity original, String mobType, double radius) {
@@ -549,6 +625,8 @@ public final class BedrockVisualManager implements Listener {
     }
 
     private void destroySession(VisualSession session, boolean deathAnimation) {
+        this.debug("destroy session mobType=" + session.mobType() + " deathAnimation=" + deathAnimation
+                + " original=" + this.entityInfo(session.original()) + " proxy=" + this.entityInfo(session.proxy()));
         this.sessionsByOriginal.remove(session.original().getUniqueId());
         this.sessionsByProxy.remove(session.proxy().getUniqueId());
         if (session.syncTask() != null) {
@@ -557,7 +635,7 @@ public final class BedrockVisualManager implements Listener {
         Entity proxy = session.proxy();
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.showEntity((Plugin)this.plugin, session.original());
-            if (!this.isFloodgatePlayer(player)) {
+            if (!this.isBedrockPlayer(player)) {
                 player.hideEntity((Plugin)this.plugin, proxy);
             }
             for (UUID modelPartId : session.modelPartIds()) {
@@ -591,6 +669,9 @@ public final class BedrockVisualManager implements Listener {
                             || session.original().isDead()
                             || !BedrockVisualManager.this.isValidLiving(session.proxy())
                             || session.proxy().isDead()) {
+                        BedrockVisualManager.this.debug("cleanup task removing invalid session mobType=" + session.mobType()
+                                + " original=" + BedrockVisualManager.this.entityInfo(session.original())
+                                + " proxy=" + BedrockVisualManager.this.entityInfo(session.proxy()));
                         BedrockVisualManager.this.destroySession(session);
                     }
                 }
@@ -635,23 +716,53 @@ public final class BedrockVisualManager implements Listener {
         }
     }
 
-    private boolean hasFloodgate() {
+    private boolean hasBedrockBridge() {
         return Bukkit.getPluginManager().getPlugin("floodgate") != null
                 || Bukkit.getPluginManager().getPlugin("Floodgate") != null
-                || this.findClass("org.geysermc.floodgate.api.FloodgateApi") != null;
+                || Bukkit.getPluginManager().getPlugin("Geyser-Spigot") != null
+                || Bukkit.getPluginManager().getPlugin("GeyserBukkit") != null
+                || this.findClass("org.geysermc.floodgate.api.FloodgateApi") != null
+                || this.findClass("org.geysermc.geyser.api.GeyserApi") != null;
     }
 
-    private boolean isFloodgatePlayer(Player player) {
+    private boolean isBedrockPlayer(Player player) {
         if (player == null) {
             return false;
         }
+        if (this.isFloodgatePlayer(player)) {
+            return true;
+        }
+        return this.isGeyserPlayer(player);
+    }
+
+    private boolean isFloodgatePlayer(Player player) {
         try {
-            Class<?> apiClass = Class.forName("org.geysermc.floodgate.api.FloodgateApi");
+            Class<?> apiClass = this.findClass("org.geysermc.floodgate.api.FloodgateApi");
+            if (apiClass == null) {
+                return false;
+            }
             Object api = apiClass.getMethod("getInstance").invoke(null);
             Method method = api.getClass().getMethod("isFloodgatePlayer", UUID.class);
             Object result = method.invoke(api, player.getUniqueId());
             return result instanceof Boolean bool && bool;
-        } catch (Throwable ignored) {
+        } catch (Throwable throwable) {
+            this.debug("bedrock player check floodgate failed player=" + this.playerInfo(player) + " error=" + throwable.getClass().getSimpleName() + ":" + throwable.getMessage());
+            return false;
+        }
+    }
+
+    private boolean isGeyserPlayer(Player player) {
+        try {
+            Class<?> apiClass = this.findClass("org.geysermc.geyser.api.GeyserApi");
+            if (apiClass == null) {
+                return false;
+            }
+            Object api = apiClass.getMethod("api").invoke(null);
+            Method method = api.getClass().getMethod("connectionByUuid", UUID.class);
+            Object connection = method.invoke(api, player.getUniqueId());
+            return connection != null;
+        } catch (Throwable throwable) {
+            this.debug("bedrock player check geyser failed player=" + this.playerInfo(player) + " error=" + throwable.getClass().getSimpleName() + ":" + throwable.getMessage());
             return false;
         }
     }
@@ -664,12 +775,40 @@ public final class BedrockVisualManager implements Listener {
         }
     }
 
-    private void logFloodgateMissingOnce() {
-        if (this.floodgateUnavailableLogged) {
+    private void logBedrockBridgeMissingOnce() {
+        if (this.bedrockBridgeUnavailableLogged) {
             return;
         }
-        this.floodgateUnavailableLogged = true;
+        this.bedrockBridgeUnavailableLogged = true;
         this.plugin.getLogger().info(this.plugin.getLanguageManager().raw("logs.bedrock-visual-floodgate-missing"));
+    }
+
+    private void debug(String message) {
+        this.plugin.debug("bedrock-visual", message);
+    }
+
+    private String playerInfo(Player player) {
+        if (player == null) {
+            return "null";
+        }
+        Location location = player.getLocation();
+        return player.getName() + "/" + player.getUniqueId() + "@" + this.locationInfo(location);
+    }
+
+    private String entityInfo(Entity entity) {
+        if (entity == null) {
+            return "null";
+        }
+        return entity.getType().name() + "/" + entity.getUniqueId() + " valid=" + entity.isValid() + "@" + this.locationInfo(entity.getLocation());
+    }
+
+    private String locationInfo(Location location) {
+        if (location == null) {
+            return "null";
+        }
+        World world = location.getWorld();
+        return (world == null ? "null-world" : world.getName())
+                + ":" + String.format(Locale.ROOT, "%.2f,%.2f,%.2f", location.getX(), location.getY(), location.getZ());
     }
 
     private static String safeTagPart(String value) {
