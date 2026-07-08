@@ -1,0 +1,67 @@
+name: Bug report
+description: Report a reproducible TwiBosses problem.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Remove secrets, tokens, webhook URLs, and private player data before posting logs or config.
+  - type: input
+    id: twibosses-version
+    attributes:
+      label: TwiBosses version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: server-version
+    attributes:
+      label: Server software and version
+      placeholder: "Paper 1.20.4"
+    validations:
+      required: true
+  - type: input
+    id: java-version
+    attributes:
+      label: Java version
+      placeholder: "Java 17"
+    validations:
+      required: true
+  - type: input
+    id: mythicmobs-version
+    attributes:
+      label: MythicMobs version
+      placeholder: "5.x"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the visible behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Configure ...
+        2. Run ...
+        3. Kill/spawn ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: text
+      description: Paste only the relevant console section. Remove secrets first.
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      render: yaml
+      description: Paste only the related config/language sections. Remove secrets first.

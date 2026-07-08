@@ -1,0 +1,197 @@
+settings:
+  language: tr
+
+security:
+  commands:
+    max-per-player-per-minute: 12
+    max-console-per-minute: 30
+  spawn:
+    min-manual-spawn-interval-seconds: 5
+    prevent-duplicate-alive-boss: true
+  rewards:
+    max-commands-per-rank: 8
+    max-command-length: 180
+    allowed-command-prefixes:
+      - "give"
+      - "eco give"
+      - "effect give"
+      - "lp user"
+    blocked-command-fragments:
+      - ";"
+      - "&&"
+      - "||"
+      - "$("
+      - "`"
+      - "op "
+      - "deop "
+      - "stop"
+      - "restart"
+      - "reload"
+      - "pl"
+      - "plugins"
+  webhooks:
+    max-content-length: 512
+    max-field-length: 1024
+    connect-timeout-ms: 4000
+    read-timeout-ms: 4000
+
+metrics:
+  enabled: true
+  log-startup: true
+  error-reporting: false
+
+updates:
+  enabled: false
+
+display:
+  actionbar:
+    enabled: true
+    update-interval: 20
+  top-list:
+    max-entries: 5
+  top-damage:
+    enable: true
+  reward-broadcast:
+    enable: true
+  spawn-title:
+    enabled: true
+    fade-in: 10
+    stay: 40
+    fade-out: 10
+    sound:
+      enabled: true
+      type: ENTITY_ENDER_DRAGON_GROWL
+      volume: 1.0
+      pitch: 1.0
+  death-title:
+    enabled: true
+    fade-in: 10
+    stay: 40
+    fade-out: 10
+    sound:
+      enabled: true
+      type: ENTITY_WITHER_DEATH
+      volume: 1.0
+      pitch: 1.0
+  respawn-hologram:
+    enabled: true
+
+tracked-mobs:
+  EliteSkeleton:
+    respawn:
+      enabled: true
+      time: 300
+    spawn-time:
+      enable: false
+      time:
+        - "08:00:00"
+        - "12:00:00"
+        - "18:30:00"
+    rewards:
+      top-1:
+        - "give {player} diamond 5"
+        - "eco give {player} 5000"
+      top-2:
+        - "give {player} diamond 3"
+        - "eco give {player} 3000"
+      top-3:
+        - "give {player} diamond 2"
+        - "eco give {player} 2000"
+    participation-reward:
+      enabled: true
+      min-damage: 200
+      commands:
+        - "give {player} diamond 1"
+    lasthit-reward:
+      enabled: true
+      min-damage: 200
+      commands:
+        - "give {player} diamond 1"
+  BossZombie:
+    respawn:
+      enabled: true
+      time: 300
+    rewards:
+      top-1:
+        - "give {player} netherite_ingot 2"
+        - "eco give {player} 10000"
+      top-2:
+        - "give {player} netherite_ingot 1"
+        - "eco give {player} 5000"
+      top-3:
+        - "give {player} diamond 5"
+        - "eco give {player} 3000"
+    participation-reward:
+      enabled: true
+      min-damage: 200
+      commands:
+        - "give {player} diamond 1"
+    lasthit-reward:
+      enabled: true
+      min-damage: 200
+      commands:
+        - "give {player} diamond 1"
+
+boss-spawn-conditions:
+  enabled: true
+  mobs:
+    BossExample:
+      required-kills:
+        enabled: true
+        vanilla-mobs:
+          ZOMBIE: 10
+          SKELETON: 5
+        mythic-mobs:
+          CustomMob1: 3
+          CustomMob2: 2
+
+damage-settings:
+  threshold:
+    enabled: true
+    default:
+      minimum-damage: 200.0
+    per-mob:
+      EliteSkeleton:
+        minimum-damage: 200.0
+
+placeholders:
+  damage-format: "#.##"
+  percentage-format: "#.#"
+
+discord:
+  webhook:
+    enabled: true
+
+webhooks:
+  EliteSkeleton:
+    spawn:
+      enabled: false
+      url: ""
+      avatar-url: ""
+      embed-thumbnail: ""
+    death:
+      enabled: false
+      url: ""
+      avatar-url: ""
+      embed-thumbnail: ""
+
+mob-settings:
+  movement-restriction:
+    enabled: true
+    max-distance: 7
+    check-interval: 2
+    teleport-back: true
+
+hologram:
+  provider: NONE
+
+boss-health:
+  announcements:
+    enabled: true
+    thresholds:
+      - 70
+      - 50
+      - 30
+      - 20
+      - 10
+      - 5

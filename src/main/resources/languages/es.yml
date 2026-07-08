@@ -1,0 +1,208 @@
+general:
+  unknown: "Desconocido"
+
+commands:
+  reload: "&aConfiguración y archivos de idioma recargados."
+  toggle-on: "&aSeguimiento de daño activado."
+  toggle-off: "&cSeguimiento de daño desactivado."
+  no-permission: "&cNo tienes permiso para usar este comando."
+  rate-limit: "&cEspera un poco antes de usar este comando otra vez."
+  only-players: "&cSolo los jugadores pueden usar este comando."
+  unknown-mob: "&c'{mobtype}' no es un boss rastreado en el config."
+  manual-spawn-cooldown: "&cEspera antes de invocar manualmente este boss otra vez."
+  spawn-success: "&aBoss invocado: &f{mobtype}"
+  spawn-failed: "&cNo se pudo invocar el boss: &f{mobtype}"
+  setspawn-success: "&aPunto de aparición definido para &f{mobtype}"
+  deletespawn-success: "&aPunto de aparición eliminado para &f{mobtype}"
+  deletespawn-failed: "&cNo se pudo eliminar el punto de aparición para &f{mobtype}"
+  usage:
+    spawn: "&eUso: /twiboss spawn <mobtype>"
+    setspawn: "&eUso: /twiboss setspawn <mobtype>"
+    deletespawn: "&eUso: /twiboss deletespawn <mobtype>"
+  help:
+    - "&b---- Comandos de TwiBosses ----"
+    - "&e/twiboss reload &7- Recarga config e idiomas"
+    - "&e/twiboss toggle &7- Activa o desactiva el seguimiento de daño"
+    - "&e/twiboss spawn <mobtype> &7- Invoca un boss en tu ubicación"
+    - "&e/twiboss setspawn <mobtype> &7- Define el punto de aparición"
+    - "&e/twiboss deletespawn <mobtype> &7- Elimina el punto de aparición"
+    - "&e/twiboss help &7- Muestra este menú"
+
+display:
+  actionbar: "&6Daño: &f{damage} &7(&e{percentage}%&7)"
+  top-list: "&7{position}. &f{player} &8- &e{damage} &7(&f{percentage}%&7)"
+  spawn-title:
+    title: "&c&l{mobname}"
+    subtitle: "&7apareció en &f{location}"
+  death-title:
+    title: "&c&l{mobname}"
+    subtitle: "&7fue derrotado por &f{killer}"
+  top-damage:
+    header: "&8&m--------------------&r"
+    killer-format: "&7> &c{mobname} &7fue derrotado por &f{killer}"
+    top-header: "&6&lMayor Daño:"
+    player-format: "&7{position}. &f{player} &8- &e{damage} &7(&f{percentage}%&7)"
+    footer: "&8&m--------------------&r"
+  reward-broadcast:
+    rewards-header: "&a&lRecompensas entregadas:"
+    reward-format: "&7- &f{player} &7recibió recompensas por el puesto #{position}"
+  respawn-hologram:
+    lines:
+      - "&c&l{mobname}"
+      - "&7Reaparece en: &f{time}"
+  death-message-default: "&7{mobname} fue derrotado."
+
+mobs:
+  EliteSkeleton:
+    display-name: "&c&lElite Skeleton"
+    announcement:
+      - ""
+      - "&c&lElite Skeleton &7apareció en &f{location}."
+      - ""
+    death-message:
+      - "&8&m----------------------------------------"
+      - "&7> &c{mobname} &7fue derrotado por &f{killer}"
+      - "&8&m----------------------------------------"
+  BossZombie:
+    display-name: "&4&lBoss Zombie"
+    announcement:
+      - ""
+      - "&4&lBoss Zombie &7apareció en &f{location}."
+      - ""
+    death-message:
+      - "&8&m----------------------------------------"
+      - "&7> &c{mobname} &7fue derrotado por &f{killer}"
+      - "&8&m----------------------------------------"
+
+damage:
+  threshold:
+    default: "&cDebes hacer al menos {damage} de daño para entrar en la clasificación."
+    per-mob:
+      EliteSkeleton:
+        message: "&cDebes hacer al menos {damage} de daño a {mobname}."
+
+rewards:
+  participation-received: "&a¡Recibiste una recompensa de participación!"
+  lasthit-broadcast: "&a¡{player} recibió la recompensa del último golpe!"
+
+placeholders:
+  respawn-countdown: "&a{mobname} reaparecerá en {time}."
+  mob-ready: "&aListo"
+  not-available: "N/D"
+  none: "Ninguno"
+  yes: "Sí"
+  no: "No"
+  ready: "Listo"
+  no-player: "Sin jugador"
+  no-data: "Sin datos"
+  top-format: "&f{player} &8» &e{damage} &7(&f{percentage}%&7)"
+
+boss-health:
+  announcement: "&c&l{mobname} &fha llegado a &c{percentage}% &fde vida."
+
+webhooks:
+  default:
+    username: "TwiBosses"
+    field-boss: "Boss"
+    field-world: "Mundo"
+    field-location: "Ubicación"
+    field-killer: "Asesino"
+    spawn:
+      content: ""
+      embed-title: "Boss Aparecido"
+      embed-description: "**{mobname}** apareció en **{location}** en **{world}**."
+      embed-footer: "TwiBosses - Aparición de Boss"
+    death:
+      content: ""
+      embed-title: "Boss Derrotado"
+      embed-description: "**{mobname}** fue derrotado por **{killer}**."
+      embed-footer: "TwiBosses - Muerte de Boss"
+
+banner:
+  enable:
+    - "&a--------------------------------------------------------"
+    - ""
+    - "&aTwiBosses v{version}"
+    - "&bAuthor: Siberanka"
+    - ""
+    - "&bTwiBosses se activó correctamente."
+    - ""
+    - "&a--------------------------------------------------------"
+  disable:
+    - "&4--------------------------------------------------------"
+    - ""
+    - "&4TwiBosses v{version}"
+    - "&bAuthor: Siberanka"
+    - ""
+    - "&bTwiBosses se desactivó correctamente."
+    - ""
+    - "&4--------------------------------------------------------"
+
+updates:
+  check-failed: "No se pudieron comprobar actualizaciones: {error}"
+  console:
+    - "==========================================="
+    - "Hay una nueva actualización disponible para TwiBosses."
+    - "Versión actual: {current}"
+    - "Última versión: {latest}"
+    - "Descarga: {url}"
+    - "==========================================="
+  player:
+    - "&a==========================================="
+    - "&aHay una nueva actualización disponible para TwiBosses."
+    - "&aVersión actual: &c{current}"
+    - "&aÚltima versión: &e{latest}"
+    - "&aDescarga: &b{url}"
+    - "&a==========================================="
+
+logs:
+  unsupported-version: "Esta versión del servidor no es compatible."
+  current-version: "Versión actual: {version}"
+  supported-versions: "Versiones compatibles: 1.18.2 - 1.21.11"
+  compatibility-information: "Información de compatibilidad:"
+  server-information: "Información del servidor:"
+  metrics-enabled: "La recopilación de métricas bStats está activada."
+  mythicmobs-missing: "MythicMobs no encontrado. Desactivando TwiBosses."
+  placeholderapi-enabled: "Integración con PlaceholderAPI activada."
+  plugin-enabled: "Plugin activado correctamente."
+  hologram-fancy: "Usando FancyHolograms para hologramas."
+  hologram-fancy-missing: "FancyHolograms no encontrado, hologramas desactivados."
+  hologram-decent: "Usando DecentHolograms para hologramas."
+  hologram-decent-missing: "DecentHolograms no encontrado, hologramas desactivados."
+  hologram-disabled: "Los hologramas están desactivados."
+  configuration-repaired: "Configuración reparada: se añadieron valores faltantes y se eliminaron entradas inválidas."
+  configuration-repair-failed: "No se pudo reparar la configuración: {error}"
+  command-missing: "El comando 'twiboss' no se encontró en plugin.yml."
+  skipped-unsafe-lasthit-player: "Recompensa de último golpe omitida por nombre de jugador inseguro: {player}"
+  lasthit-command-limit: "La lista de comandos de último golpe superó el límite; los comandos extra fueron omitidos."
+  blocked-lasthit-command: "Comando inseguro de último golpe bloqueado desde config: {command}"
+  blocked-lasthit-command-after-placeholder: "Comando inseguro de último golpe bloqueado después de placeholders: {command}"
+  invalid-death-sound: "Sonido de muerte inválido en config: {sound}"
+  skipped-unsafe-reward-player: "Recompensa omitida por nombre de jugador inseguro: {player}"
+  skipped-unsafe-participation-player: "Recompensa de participación omitida por nombre de jugador inseguro: {player}"
+  reward-command-limit: "La lista de comandos de recompensa superó el límite; los comandos extra fueron omitidos."
+  blocked-reward-command: "Comando de recompensa inseguro bloqueado desde config: {command}"
+  blocked-reward-command-after-placeholder: "Comando de recompensa inseguro bloqueado después de placeholders: {command}"
+  data-create-failed: "No se pudo crear data.yml: {error}"
+  spawn-world-missing: "Aparición omitida para {mobtype}: el mundo falta o no está cargado."
+  respawn-save-failed: "No se pudo guardar el tiempo de respawn para {mobtype}: {error}"
+  respawn-clear-failed: "No se pudo limpiar el tiempo de respawn para {mobtype}: {error}"
+  invalid-spawn-save: "Se rechazó guardar una ubicación de aparición inválida para {mobtype}."
+  spawn-save-failed: "No se pudo guardar la ubicación de aparición para {mobtype}: {error}"
+  invalid-spawn-location: "Se rechazó invocar {mobtype} en una ubicación inválida."
+  duplicate-spawn-skipped: "Aparición duplicada omitida para el boss activo {mobtype}."
+  mythic-spawn-failed: "MythicMobs no pudo invocar {mobtype}."
+  saved-respawn-timer: "{mobtype} tiene un temporizador de respawn guardado: quedan {seconds}s."
+  kill-requirement-skip: "{mobtype} requiere kills para aparecer; auto-spawn omitido."
+  scheduled-spawn: "Aparición programada activada para {mobtype} a las {time}."
+  spawn-delete-failed: "No se pudo eliminar la ubicación de aparición para {mobtype}: {error}"
+  invalid-spawn-sound: "Sonido de aparición inválido en config: {sound}"
+  mythicmob-killed: "MythicMob eliminado: {mobtype}"
+  kill-count: "Conteo de kills para {boss} - {mobtype}: {count}"
+  invalid-webhook-url: "URL de webhook de Discord inválida bloqueada para {mobtype} {event}."
+  webhook-send-failed: "No se pudo enviar el webhook: {error}"
+  language-folder-create-failed: "No se pudo crear la carpeta languages."
+  language-unknown: "Idioma desconocido '{language}', usando tr."
+  language-resource-missing: "Falta el archivo de idioma incluido: {resource}"
+  language-repaired: "Archivo de idioma reparado: {language}.yml"
+  language-load-failed: "No se pudo cargar el idioma {language}: {error}"

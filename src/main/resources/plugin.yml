@@ -1,0 +1,34 @@
+name: TwiBosses
+version: '${project.version}'
+main: com.siberanka.twibosses.TwiBosses
+api-version: '1.18'
+authors: [ Siberanka ]
+depend: [ MythicMobs ]
+softdepend:
+  - PlaceholderAPI
+  - FancyHolograms
+  - DecentHolograms
+commands:
+  twiboss:
+    description: Main command for TwiBosses
+    usage: /twiboss <reload|toggle|spawn|setspawn|deletespawn|help>
+    aliases: [ tboss, twibosses ]
+permissions:
+  twibosses.reload:
+    description: Allows reloading the plugin configuration
+    default: op
+  twibosses.toggle:
+    description: Allows toggling damage tracking
+    default: op
+  twibosses.spawn:
+    description: Allows manual spawning of tracked mobs
+    default: op
+  twibosses.setspawn:
+    description: Allows setting the spawn location of tracked mobs
+    default: op
+  twibosses.deletespawn:
+    description: Allows deleting the spawn location of tracked mobs
+    default: op
+  twibosses.update:
+    description: Allows receiving update notifications on join
+    default: op

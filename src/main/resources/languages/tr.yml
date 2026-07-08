@@ -1,0 +1,208 @@
+general:
+  unknown: "Bilinmiyor"
+
+commands:
+  reload: "&aYapılandırma ve dil dosyaları yeniden yüklendi."
+  toggle-on: "&aHasar takibi etkinleştirildi."
+  toggle-off: "&cHasar takibi devre dışı bırakıldı."
+  no-permission: "&cBu komutu kullanma iznin yok."
+  rate-limit: "&cBu komutu tekrar kullanmadan önce biraz bekle."
+  only-players: "&cBu komutu sadece oyuncular kullanabilir."
+  unknown-mob: "&c'{mobtype}' config içinde takip edilen bir boss değil."
+  manual-spawn-cooldown: "&cBu bossu tekrar elle spawnlamadan önce beklemelisin."
+  spawn-success: "&aBoss spawnlandı: &f{mobtype}"
+  spawn-failed: "&cBoss spawnlanamadı: &f{mobtype}"
+  setspawn-success: "&aSpawn konumu ayarlandı: &f{mobtype}"
+  deletespawn-success: "&aSpawn konumu silindi: &f{mobtype}"
+  deletespawn-failed: "&cSpawn konumu silinemedi: &f{mobtype}"
+  usage:
+    spawn: "&eKullanım: /twiboss spawn <mobtype>"
+    setspawn: "&eKullanım: /twiboss setspawn <mobtype>"
+    deletespawn: "&eKullanım: /twiboss deletespawn <mobtype>"
+  help:
+    - "&b---- TwiBosses Komutları ----"
+    - "&e/twiboss reload &7- Config ve dil dosyalarını yeniler"
+    - "&e/twiboss toggle &7- Hasar takibini açar veya kapatır"
+    - "&e/twiboss spawn <mobtype> &7- Bulunduğun konumda boss spawnlar"
+    - "&e/twiboss setspawn <mobtype> &7- Boss spawn konumunu ayarlar"
+    - "&e/twiboss deletespawn <mobtype> &7- Boss spawn konumunu siler"
+    - "&e/twiboss help &7- Yardım menüsünü gösterir"
+
+display:
+  actionbar: "&6Hasar: &f{damage} &7(&e{percentage}%&7)"
+  top-list: "&7{position}. &f{player} &8- &e{damage} &7(&f{percentage}%&7)"
+  spawn-title:
+    title: "&c&l{mobname}"
+    subtitle: "&7şu konumda belirdi: &f{location}"
+  death-title:
+    title: "&c&l{mobname}"
+    subtitle: "&f{killer} &7tarafından yenildi"
+  top-damage:
+    header: "&8&m--------------------&r"
+    killer-format: "&7> &c{mobname} &7şu oyuncu tarafından yenildi: &f{killer}"
+    top-header: "&6&lEn Çok Hasar Verenler:"
+    player-format: "&7{position}. &f{player} &8- &e{damage} &7(&f{percentage}%&7)"
+    footer: "&8&m--------------------&r"
+  reward-broadcast:
+    rewards-header: "&a&lVerilen ödüller:"
+    reward-format: "&7- &f{player} &7#{position} sırası için ödül aldı"
+  respawn-hologram:
+    lines:
+      - "&c&l{mobname}"
+      - "&7Yeniden doğma: &f{time}"
+  death-message-default: "&7{mobname} yenildi."
+
+mobs:
+  EliteSkeleton:
+    display-name: "&c&lElite Skeleton"
+    announcement:
+      - ""
+      - "&c&lElite Skeleton &7şu konumda belirdi: &f{location}."
+      - ""
+    death-message:
+      - "&8&m----------------------------------------"
+      - "&7> &c{mobname} &7şu oyuncu tarafından yenildi: &f{killer}"
+      - "&8&m----------------------------------------"
+  BossZombie:
+    display-name: "&4&lBoss Zombie"
+    announcement:
+      - ""
+      - "&4&lBoss Zombie &7şu konumda belirdi: &f{location}."
+      - ""
+    death-message:
+      - "&8&m----------------------------------------"
+      - "&7> &c{mobname} &7şu oyuncu tarafından yenildi: &f{killer}"
+      - "&8&m----------------------------------------"
+
+damage:
+  threshold:
+    default: "&cSıralamaya girmek için en az {damage} hasar vermelisin."
+    per-mob:
+      EliteSkeleton:
+        message: "&c{mobname} için en az {damage} hasar vermelisin."
+
+rewards:
+  participation-received: "&aKatılım ödülü aldın!"
+  lasthit-broadcast: "&a{player} son vuruş ödülünü aldı!"
+
+placeholders:
+  respawn-countdown: "&a{mobname} {time} sonra yeniden doğacak."
+  mob-ready: "&aHazır"
+  not-available: "Yok"
+  none: "Hiçbiri"
+  yes: "Evet"
+  no: "Hayır"
+  ready: "Hazır"
+  no-player: "Oyuncu yok"
+  no-data: "Veri yok"
+  top-format: "&f{player} &8» &e{damage} &7(&f{percentage}%&7)"
+
+boss-health:
+  announcement: "&c&l{mobname} &fcanı &c%{percentage} &fseviyesine düştü."
+
+webhooks:
+  default:
+    username: "TwiBosses"
+    field-boss: "Boss"
+    field-world: "Dünya"
+    field-location: "Konum"
+    field-killer: "Öldüren"
+    spawn:
+      content: ""
+      embed-title: "Boss Doğdu"
+      embed-description: "**{mobname}** **{world}** dünyasında **{location}** konumunda doğdu."
+      embed-footer: "TwiBosses - Boss Doğumu"
+    death:
+      content: ""
+      embed-title: "Boss Yenildi"
+      embed-description: "**{mobname}**, **{killer}** tarafından yenildi."
+      embed-footer: "TwiBosses - Boss Ölümü"
+
+banner:
+  enable:
+    - "&a--------------------------------------------------------"
+    - ""
+    - "&aTwiBosses v{version}"
+    - "&bAuthor: Siberanka"
+    - ""
+    - "&bTwiBosses başarıyla etkinleştirildi."
+    - ""
+    - "&a--------------------------------------------------------"
+  disable:
+    - "&4--------------------------------------------------------"
+    - ""
+    - "&4TwiBosses v{version}"
+    - "&bAuthor: Siberanka"
+    - ""
+    - "&bTwiBosses başarıyla devre dışı bırakıldı."
+    - ""
+    - "&4--------------------------------------------------------"
+
+updates:
+  check-failed: "Güncelleme kontrolü yapılamadı: {error}"
+  console:
+    - "==========================================="
+    - "TwiBosses için yeni bir güncelleme var."
+    - "Mevcut sürüm: {current}"
+    - "Son sürüm: {latest}"
+    - "İndirme: {url}"
+    - "==========================================="
+  player:
+    - "&a==========================================="
+    - "&aTwiBosses için yeni bir güncelleme var."
+    - "&aMevcut sürüm: &c{current}"
+    - "&aSon sürüm: &e{latest}"
+    - "&aİndirme: &b{url}"
+    - "&a==========================================="
+
+logs:
+  unsupported-version: "Bu sunucu sürümü desteklenmiyor."
+  current-version: "Mevcut sürüm: {version}"
+  supported-versions: "Desteklenen sürümler: 1.18.2 - 1.21.11"
+  compatibility-information: "Uyumluluk bilgisi:"
+  server-information: "Sunucu bilgisi:"
+  metrics-enabled: "bStats metrik toplama etkin."
+  mythicmobs-missing: "MythicMobs bulunamadı. TwiBosses devre dışı bırakılıyor."
+  placeholderapi-enabled: "PlaceholderAPI entegrasyonu etkin."
+  plugin-enabled: "Plugin başarıyla etkinleştirildi."
+  hologram-fancy: "Hologramlar için FancyHolograms kullanılıyor."
+  hologram-fancy-missing: "FancyHolograms bulunamadı, hologramlar devre dışı."
+  hologram-decent: "Hologramlar için DecentHolograms kullanılıyor."
+  hologram-decent-missing: "DecentHolograms bulunamadı, hologramlar devre dışı."
+  hologram-disabled: "Hologramlar devre dışı."
+  configuration-repaired: "Yapılandırma onarıldı: eksik varsayılanlar eklendi ve geçersiz girdiler kaldırıldı."
+  configuration-repair-failed: "Yapılandırma onarılamadı: {error}"
+  command-missing: "plugin.yml içinde 'twiboss' komutu bulunamadı."
+  skipped-unsafe-lasthit-player: "Güvensiz oyuncu adı nedeniyle son vuruş ödülü atlandı: {player}"
+  lasthit-command-limit: "Son vuruş ödül komutu limiti aşıldı; fazla komutlar atlandı."
+  blocked-lasthit-command: "Config içindeki güvensiz son vuruş ödül komutu engellendi: {command}"
+  blocked-lasthit-command-after-placeholder: "Placeholder sonrası güvensiz son vuruş ödül komutu engellendi: {command}"
+  invalid-death-sound: "Config içinde geçersiz ölüm sesi: {sound}"
+  skipped-unsafe-reward-player: "Güvensiz oyuncu adı nedeniyle ödül atlandı: {player}"
+  skipped-unsafe-participation-player: "Güvensiz oyuncu adı nedeniyle katılım ödülü atlandı: {player}"
+  reward-command-limit: "Ödül komutu limiti aşıldı; fazla komutlar atlandı."
+  blocked-reward-command: "Config içindeki güvensiz ödül komutu engellendi: {command}"
+  blocked-reward-command-after-placeholder: "Placeholder sonrası güvensiz ödül komutu engellendi: {command}"
+  data-create-failed: "data.yml oluşturulamadı: {error}"
+  spawn-world-missing: "{mobtype} spawnı atlandı: dünya eksik veya yüklü değil."
+  respawn-save-failed: "{mobtype} respawn zamanı kaydedilemedi: {error}"
+  respawn-clear-failed: "{mobtype} respawn zamanı temizlenemedi: {error}"
+  invalid-spawn-save: "{mobtype} için geçersiz spawn konumu kaydedilmedi."
+  spawn-save-failed: "{mobtype} spawn konumu kaydedilemedi: {error}"
+  invalid-spawn-location: "{mobtype} geçersiz konumda spawnlanmadı."
+  duplicate-spawn-skipped: "{mobtype} zaten aktif olduğu için tekrar spawn atlandı."
+  mythic-spawn-failed: "MythicMobs {mobtype} spawnlayamadı."
+  saved-respawn-timer: "{mobtype} için kayıtlı respawn süresi var: {seconds}s kaldı."
+  kill-requirement-skip: "{mobtype} kill şartı istediği için otomatik spawn atlandı."
+  scheduled-spawn: "{mobtype} için zamanlanmış spawn tetiklendi: {time}"
+  spawn-delete-failed: "{mobtype} spawn konumu silinemedi: {error}"
+  invalid-spawn-sound: "Config içinde geçersiz spawn sesi: {sound}"
+  mythicmob-killed: "MythicMob öldü: {mobtype}"
+  kill-count: "{boss} için kill sayısı - {mobtype}: {count}"
+  invalid-webhook-url: "{mobtype} {event} için geçersiz Discord webhook URL engellendi."
+  webhook-send-failed: "Webhook gönderilemedi: {error}"
+  language-folder-create-failed: "languages klasörü oluşturulamadı."
+  language-unknown: "Bilinmeyen dil '{language}', tr kullanılacak."
+  language-resource-missing: "Paketli dil dosyası eksik: {resource}"
+  language-repaired: "Dil dosyası onarıldı: {language}.yml"
+  language-load-failed: "{language} dili yüklenemedi: {error}"

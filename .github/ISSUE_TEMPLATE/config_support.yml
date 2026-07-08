@@ -1,0 +1,44 @@
+name: Configuration support
+description: Ask for help with TwiBosses configuration.
+title: "[Config]: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never post webhook URLs, tokens, database credentials, private IPs, or other secrets.
+  - type: input
+    id: twibosses-version
+    attributes:
+      label: TwiBosses version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: server-version
+    attributes:
+      label: Server software and version
+      placeholder: "Paper 1.20.4"
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to configure?
+      description: Explain the desired boss, reward, spawn, language, placeholder, or webhook behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Current relevant config
+      render: yaml
+      description: Paste only the related sections. Remove secrets first.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Current result
+      description: What happens now? Include relevant sanitized logs if there is an error.

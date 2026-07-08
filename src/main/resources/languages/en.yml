@@ -1,0 +1,208 @@
+general:
+  unknown: "Unknown"
+
+commands:
+  reload: "&aConfiguration and language files reloaded."
+  toggle-on: "&aDamage tracking enabled."
+  toggle-off: "&cDamage tracking disabled."
+  no-permission: "&cYou do not have permission to use this command."
+  rate-limit: "&cPlease slow down before using this command again."
+  only-players: "&cOnly players can use this command."
+  unknown-mob: "&c'{mobtype}' is not a tracked boss in config."
+  manual-spawn-cooldown: "&cPlease wait before manually spawning this boss again."
+  spawn-success: "&aSpawned boss: &f{mobtype}"
+  spawn-failed: "&cFailed to spawn boss: &f{mobtype}"
+  setspawn-success: "&aSpawn location set for &f{mobtype}"
+  deletespawn-success: "&aSpawn location deleted for &f{mobtype}"
+  deletespawn-failed: "&cFailed to delete spawn location for &f{mobtype}"
+  usage:
+    spawn: "&eUsage: /twiboss spawn <mobtype>"
+    setspawn: "&eUsage: /twiboss setspawn <mobtype>"
+    deletespawn: "&eUsage: /twiboss deletespawn <mobtype>"
+  help:
+    - "&b---- TwiBosses Commands ----"
+    - "&e/twiboss reload &7- Reload config and language files"
+    - "&e/twiboss toggle &7- Toggle damage tracking"
+    - "&e/twiboss spawn <mobtype> &7- Spawn a boss at your location"
+    - "&e/twiboss setspawn <mobtype> &7- Set a boss spawn location"
+    - "&e/twiboss deletespawn <mobtype> &7- Delete a boss spawn location"
+    - "&e/twiboss help &7- Show this help menu"
+
+display:
+  actionbar: "&6Damage: &f{damage} &7(&e{percentage}%&7)"
+  top-list: "&7{position}. &f{player} &8- &e{damage} &7(&f{percentage}%&7)"
+  spawn-title:
+    title: "&c&l{mobname}"
+    subtitle: "&7appeared at &f{location}"
+  death-title:
+    title: "&c&l{mobname}"
+    subtitle: "&7was defeated by &f{killer}"
+  top-damage:
+    header: "&8&m--------------------&r"
+    killer-format: "&7> &c{mobname} &7was defeated by &f{killer}"
+    top-header: "&6&lTop Damage Dealers:"
+    player-format: "&7{position}. &f{player} &8- &e{damage} &7(&f{percentage}%&7)"
+    footer: "&8&m--------------------&r"
+  reward-broadcast:
+    rewards-header: "&a&lRewards given:"
+    reward-format: "&7- &f{player} &7received rewards for #{position}"
+  respawn-hologram:
+    lines:
+      - "&c&l{mobname}"
+      - "&7Respawning in: &f{time}"
+  death-message-default: "&7{mobname} has been defeated."
+
+mobs:
+  EliteSkeleton:
+    display-name: "&c&lElite Skeleton"
+    announcement:
+      - ""
+      - "&c&lElite Skeleton &7has appeared at &f{location}."
+      - ""
+    death-message:
+      - "&8&m----------------------------------------"
+      - "&7> &c{mobname} &7was defeated by &f{killer}"
+      - "&8&m----------------------------------------"
+  BossZombie:
+    display-name: "&4&lBoss Zombie"
+    announcement:
+      - ""
+      - "&4&lBoss Zombie &7has appeared at &f{location}."
+      - ""
+    death-message:
+      - "&8&m----------------------------------------"
+      - "&7> &c{mobname} &7was defeated by &f{killer}"
+      - "&8&m----------------------------------------"
+
+damage:
+  threshold:
+    default: "&cYou need to deal at least {damage} damage to be counted in rankings."
+    per-mob:
+      EliteSkeleton:
+        message: "&cYou need to deal at least {damage} damage to {mobname}."
+
+rewards:
+  participation-received: "&aYou received a participation reward!"
+  lasthit-broadcast: "&a{player} received the lasthit reward!"
+
+placeholders:
+  respawn-countdown: "&a{mobname} will respawn in {time}."
+  mob-ready: "&aReady"
+  not-available: "N/A"
+  none: "None"
+  yes: "Yes"
+  no: "No"
+  ready: "Ready"
+  no-player: "No player"
+  no-data: "No data"
+  top-format: "&f{player} &8» &e{damage} &7(&f{percentage}%&7)"
+
+boss-health:
+  announcement: "&c&l{mobname} &fhas reached &c{percentage}% &fhealth."
+
+webhooks:
+  default:
+    username: "TwiBosses"
+    field-boss: "Boss"
+    field-world: "World"
+    field-location: "Location"
+    field-killer: "Killer"
+    spawn:
+      content: ""
+      embed-title: "Boss Spawned"
+      embed-description: "**{mobname}** spawned at **{location}** in **{world}**."
+      embed-footer: "TwiBosses - Boss Spawn"
+    death:
+      content: ""
+      embed-title: "Boss Defeated"
+      embed-description: "**{mobname}** was defeated by **{killer}**."
+      embed-footer: "TwiBosses - Boss Death"
+
+banner:
+  enable:
+    - "&a--------------------------------------------------------"
+    - ""
+    - "&aTwiBosses v{version}"
+    - "&bAuthor: Siberanka"
+    - ""
+    - "&bTwiBosses has been successfully enabled."
+    - ""
+    - "&a--------------------------------------------------------"
+  disable:
+    - "&4--------------------------------------------------------"
+    - ""
+    - "&4TwiBosses v{version}"
+    - "&bAuthor: Siberanka"
+    - ""
+    - "&bTwiBosses has been successfully disabled."
+    - ""
+    - "&4--------------------------------------------------------"
+
+updates:
+  check-failed: "Unable to check for updates: {error}"
+  console:
+    - "==========================================="
+    - "There is a new update available for TwiBosses."
+    - "Current version: {current}"
+    - "Latest version: {latest}"
+    - "Download: {url}"
+    - "==========================================="
+  player:
+    - "&a==========================================="
+    - "&aThere is a new update available for TwiBosses."
+    - "&aCurrent version: &c{current}"
+    - "&aLatest version: &e{latest}"
+    - "&aDownload: &b{url}"
+    - "&a==========================================="
+
+logs:
+  unsupported-version: "This server version is not supported."
+  current-version: "Current version: {version}"
+  supported-versions: "Supported versions: 1.18.2 - 1.21.11"
+  compatibility-information: "Compatibility information:"
+  server-information: "Server information:"
+  metrics-enabled: "bStats metrics collection has been enabled."
+  mythicmobs-missing: "MythicMobs not found. Disabling TwiBosses."
+  placeholderapi-enabled: "PlaceholderAPI integration enabled."
+  plugin-enabled: "Plugin successfully enabled."
+  hologram-fancy: "Using FancyHolograms for holograms."
+  hologram-fancy-missing: "FancyHolograms not found, disabling holograms."
+  hologram-decent: "Using DecentHolograms for holograms."
+  hologram-decent-missing: "DecentHolograms not found, disabling holograms."
+  hologram-disabled: "Holograms are disabled."
+  configuration-repaired: "Configuration repaired: missing defaults were added and invalid entries were removed."
+  configuration-repair-failed: "Failed to repair configuration: {error}"
+  command-missing: "Command 'twiboss' was not found in plugin.yml."
+  skipped-unsafe-lasthit-player: "Skipped lasthit reward for unsafe player name: {player}"
+  lasthit-command-limit: "Lasthit reward command list exceeded the max size; extra commands were skipped."
+  blocked-lasthit-command: "Blocked unsafe lasthit reward command from config: {command}"
+  blocked-lasthit-command-after-placeholder: "Blocked unsafe lasthit reward command after placeholder replacement: {command}"
+  invalid-death-sound: "Invalid death sound type in config: {sound}"
+  skipped-unsafe-reward-player: "Skipped reward for unsafe player name: {player}"
+  skipped-unsafe-participation-player: "Skipped participation reward for unsafe player name: {player}"
+  reward-command-limit: "Reward command list exceeded the max size; extra commands were skipped."
+  blocked-reward-command: "Blocked unsafe reward command from config: {command}"
+  blocked-reward-command-after-placeholder: "Blocked unsafe reward command after placeholder replacement: {command}"
+  data-create-failed: "Could not create data.yml: {error}"
+  spawn-world-missing: "Skipping spawn for {mobtype}: world is missing or not loaded."
+  respawn-save-failed: "Could not save respawn time for {mobtype}: {error}"
+  respawn-clear-failed: "Could not clear respawn time for {mobtype}: {error}"
+  invalid-spawn-save: "Refused to save invalid spawn location for {mobtype}."
+  spawn-save-failed: "Could not save spawn location for {mobtype}: {error}"
+  invalid-spawn-location: "Refused to spawn {mobtype} at an invalid location."
+  duplicate-spawn-skipped: "Skipped duplicate spawn for active boss {mobtype}."
+  mythic-spawn-failed: "MythicMobs failed to spawn {mobtype}."
+  saved-respawn-timer: "{mobtype} has a saved respawn timer: {seconds}s remaining."
+  kill-requirement-skip: "{mobtype} requires kills to spawn, skipping auto-spawn."
+  scheduled-spawn: "Scheduled spawn triggered for {mobtype} at {time}."
+  spawn-delete-failed: "Could not delete spawn location for {mobtype}: {error}"
+  invalid-spawn-sound: "Invalid spawn sound type in config: {sound}"
+  mythicmob-killed: "MythicMob killed: {mobtype}"
+  kill-count: "Kill count for {boss} - {mobtype}: {count}"
+  invalid-webhook-url: "Blocked invalid Discord webhook URL for {mobtype} {event}."
+  webhook-send-failed: "Failed to send webhook: {error}"
+  language-folder-create-failed: "Could not create languages folder."
+  language-unknown: "Unknown language '{language}', falling back to tr."
+  language-resource-missing: "Missing bundled language file: {resource}"
+  language-repaired: "Language file repaired: {language}.yml"
+  language-load-failed: "Unable to load language {language}: {error}"

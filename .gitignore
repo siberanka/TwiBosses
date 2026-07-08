@@ -1,0 +1,8 @@
+target/
+work/
+old_jar/
+*.log
+*.tmp
+.idea/
+*.iml
+.vscode/
