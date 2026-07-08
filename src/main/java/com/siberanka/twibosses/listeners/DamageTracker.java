@@ -1,6 +1,7 @@
 package com.siberanka.twibosses.listeners;
 
 import com.siberanka.twibosses.TwiBosses;
+import com.siberanka.twibosses.manager.LanguageManager;
 import com.siberanka.twibosses.utils.ColorUtils;
 import io.lumine.mythic.bukkit.MythicBukkit;
 import io.lumine.mythic.bukkit.events.MythicMobSpawnEvent;
@@ -36,15 +37,21 @@ implements Listener {
     private final Map<UUID, Set<Integer>> announcedThresholds = new HashMap<UUID, Set<Integer>>();
     private final Map<String, List<TopDamageEntry>> lastTopDamage = new HashMap<String, List<TopDamageEntry>>();
     private final Set<UUID> processedDeaths = new LinkedHashSet<UUID>();
+    private long nextSessionLimitWarningAt;
+    private long nextPlayerLimitWarningAt;
 
     public DamageTracker(TwiBosses plugin) {
         this.plugin = plugin;
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         Projectile projectile;
         if (!this.enabled || !(event.getEntity() instanceof LivingEntity)) {
+            return;
+        }
+        double finalDamage = event.getFinalDamage();
+        if (!Double.isFinite(finalDamage) || finalDamage <= 0.0) {
             return;
         }
         Optional mythicMob = MythicBukkit.inst().getMobManager().getActiveMob(event.getEntity().getUniqueId());
@@ -65,16 +72,25 @@ implements Listener {
             return;
         }
         UUID entityId = event.getEntity().getUniqueId();
-        this.entityMobTypes.put(entityId, mobType);
-        this.entityDamageMap.computeIfAbsent(entityId, k -> new HashMap());
+        if (!this.ensureDamageSession(entityId, mobType)) {
+            return;
+        }
         Map<UUID, Double> damageMap = this.entityDamageMap.get(entityId);
-        damageMap.merge(damager.getUniqueId(), event.getFinalDamage(), Double::sum);
+        UUID damagerId = damager.getUniqueId();
+        if (!damageMap.containsKey(damagerId) && damageMap.size() >= this.plugin.getConfigManager().getMaxDamagePlayersPerBoss()) {
+            this.warnPlayerLimit(mobType, this.plugin.getConfigManager().getMaxDamagePlayersPerBoss());
+            return;
+        }
+        damageMap.merge(damagerId, finalDamage, Double::sum);
         this.rebuildMobAggregate(mobType);
         if (this.plugin.getConfigManager().isHealthAnnouncementsEnabled()) {
             LivingEntity entity = (LivingEntity)event.getEntity();
             double maxHealth = entity.getMaxHealth();
-            double currentHealth = entity.getHealth() - event.getFinalDamage();
-            double percentage = currentHealth / maxHealth * 100.0;
+            if (!Double.isFinite(maxHealth) || maxHealth <= 0.0) {
+                return;
+            }
+            double currentHealth = Math.max(0.0, entity.getHealth() - finalDamage);
+            double percentage = Math.max(0.0, Math.min(100.0, currentHealth / maxHealth * 100.0));
             List<Integer> thresholds = this.plugin.getConfigManager().getHealthThresholds();
             Set announced = this.announcedThresholds.computeIfAbsent(entity.getUniqueId(), k -> new HashSet());
             for (Integer threshold : thresholds) {
@@ -92,10 +108,16 @@ implements Listener {
             return;
         }
         Optional mythicMob = MythicBukkit.inst().getMobManager().getActiveMob(entityId);
-        if (mythicMob.isEmpty()) {
+        String mobType = (String)this.entityMobTypes.get(entityId);
+        if (mythicMob.isPresent()) {
+            mobType = ((ActiveMob)mythicMob.get()).getMobType();
+        }
+        if (mobType == null || !this.plugin.getConfigManager().getTrackedMobs().contains(mobType)) {
+            this.entityDamageMap.remove(entityId);
+            this.entityMobTypes.remove(entityId);
+            this.announcedThresholds.remove(entityId);
             return;
         }
-        String mobType = ((ActiveMob)mythicMob.get()).getMobType();
         Map<UUID, Double> damageMap = this.entityDamageMap.remove(entityId);
         this.entityMobTypes.remove(entityId);
         if (damageMap == null) {
@@ -147,9 +169,9 @@ implements Listener {
         String mobType = event.getMobType().getInternalName();
         if (this.plugin.getConfigManager().getTrackedMobs().contains(mobType)) {
             UUID entityId = event.getEntity().getUniqueId();
-            this.entityMobTypes.put(entityId, mobType);
-            this.entityDamageMap.put(entityId, new HashMap());
-            this.rebuildMobAggregate(mobType);
+            if (this.ensureDamageSession(entityId, mobType)) {
+                this.rebuildMobAggregate(mobType);
+            }
             this.plugin.getSpawnManager().trackSpawnedBoss(mobType, entityId);
             this.announcedThresholds.put(event.getEntity().getUniqueId(), new HashSet());
             this.lastTopDamage.remove(mobType);
@@ -180,9 +202,9 @@ implements Listener {
         ActiveMob spawnedMob = MythicBukkit.inst().getMobManager().spawnMob(mobType, location);
         if (spawnedMob != null) {
             UUID entityId = spawnedMob.getEntity().getUniqueId();
-            this.entityMobTypes.put(entityId, mobType);
-            this.entityDamageMap.put(entityId, new HashMap());
-            this.rebuildMobAggregate(mobType);
+            if (this.ensureDamageSession(entityId, mobType)) {
+                this.rebuildMobAggregate(mobType);
+            }
             this.plugin.getSpawnManager().markMobSpawned(mobType, entityId);
             if (this.plugin.getBedrockVisualManager() != null) {
                 this.plugin.getBedrockVisualManager().registerBoss(mobType, spawnedMob.getEntity().getBukkitEntity());
@@ -233,6 +255,70 @@ implements Listener {
             iterator.remove();
         }
         return added;
+    }
+
+    private boolean ensureDamageSession(UUID entityId, String mobType) {
+        if (this.entityDamageMap.containsKey(entityId)) {
+            this.entityMobTypes.put(entityId, mobType);
+            return true;
+        }
+        this.pruneStaleSessions();
+        int limit = this.plugin.getConfigManager().getMaxActiveBossDamageSessions();
+        if (this.entityDamageMap.size() >= limit) {
+            this.warnSessionLimit(limit);
+            return false;
+        }
+        this.entityMobTypes.put(entityId, mobType);
+        this.entityDamageMap.put(entityId, new HashMap());
+        return true;
+    }
+
+    private void pruneStaleSessions() {
+        Set<String> affectedMobTypes = new HashSet<>();
+        Iterator<Map.Entry<UUID, String>> iterator = this.entityMobTypes.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<UUID, String> entry = iterator.next();
+            if (MythicBukkit.inst().getMobManager().getActiveMob(entry.getKey()).isPresent()) {
+                continue;
+            }
+            affectedMobTypes.add(entry.getValue());
+            this.entityDamageMap.remove(entry.getKey());
+            this.announcedThresholds.remove(entry.getKey());
+            iterator.remove();
+        }
+        Iterator<UUID> damageIterator = this.entityDamageMap.keySet().iterator();
+        while (damageIterator.hasNext()) {
+            UUID entityId = damageIterator.next();
+            if (this.entityMobTypes.containsKey(entityId)) {
+                continue;
+            }
+            damageIterator.remove();
+        }
+        for (String mobType : affectedMobTypes) {
+            this.rebuildMobAggregate(mobType);
+        }
+    }
+
+    private void warnSessionLimit(int limit) {
+        long now = System.currentTimeMillis();
+        if (now < this.nextSessionLimitWarningAt) {
+            return;
+        }
+        this.nextSessionLimitWarningAt = now + 30_000L;
+        this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                "logs.damage-session-limit",
+                LanguageManager.placeholders("limit", String.valueOf(limit))));
+    }
+
+    private void warnPlayerLimit(String mobType, int limit) {
+        long now = System.currentTimeMillis();
+        if (now < this.nextPlayerLimitWarningAt) {
+            return;
+        }
+        this.nextPlayerLimitWarningAt = now + 30_000L;
+        this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                "logs.damage-player-limit",
+                LanguageManager.placeholders("mobtype", mobType, "limit", String.valueOf(limit))));
     }
 
     private void rebuildMobAggregate(String mobType) {

@@ -33,6 +33,11 @@ security:
   spawn:
     min-manual-spawn-interval-seconds: 5
     prevent-duplicate-alive-boss: true
+  damage:
+    # Maximum concurrently tracked boss damage sessions. Stale sessions are pruned before this limit is enforced.
+    max-active-boss-sessions: 256
+    # Maximum unique players tracked per single boss. Extra players are ignored to prevent bot-driven memory growth.
+    max-players-per-boss: 256
   rewards:
     max-commands-per-rank: 8
     max-rank-rewards: 100

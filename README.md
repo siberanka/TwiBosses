@@ -47,7 +47,9 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 | `/twiboss reload` | `twibosses.reload` | Reloads config and language files. |
 | `/twiboss toggle` | `twibosses.toggle` | Enables or disables damage tracking. |
 | `/twiboss spawn <mobtype>` | `twibosses.spawn` | Spawns a tracked boss at your location. |
+| `/twiboss spawn <mobtype> -w <world> -c <x> <y> <z>` | `twibosses.spawn` | Spawns a tracked boss at an explicit loaded location. |
 | `/twiboss setspawn <mobtype>` | `twibosses.setspawn` | Saves the current location as a boss spawn point. |
+| `/twiboss setspawn <mobtype> -w <world> -c <x> <y> <z>` | `twibosses.setspawn` | Saves an explicit loaded location as a boss spawn point. |
 | `/twiboss deletespawn <mobtype>` | `twibosses.deletespawn` | Deletes a saved boss spawn point. |
 | `/twiboss killall` | `twibosses.killall` | Kills all active tracked bosses. |
 | `/twiboss killall <mobtype>` | `twibosses.killall` | Kills all active tracked bosses of one mob type. |
@@ -222,6 +224,8 @@ plugins/TwiBosses/file-backups
 
 Dynamic boss, reward, webhook, and per-mob language sections are preserved when they match the supported schema.
 
+Spawn and setspawn command tab completion reads MythicMobs' loaded mob registry, while execution still requires the mob to be configured under `tracked-mobs` so rewards, timeouts, Bedrock visuals, and duplicate-spawn protections stay consistent.
+
 Plugin-related warnings, severe errors, uncaught plugin exceptions, and detailed stack traces are written to:
 
 ```text
@@ -263,11 +267,14 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Reward command count and length are limited.
 - Reward drop providers and item ids are validated before resolution.
 - Reward drops are capped per reward and per boss death.
+- Active boss damage sessions and tracked players per boss are capped to prevent bot-driven memory growth.
 - Bedrock visual proxy damage is rate-limited and capped before forwarding to the real boss.
 - Drop stack amounts, item id length, pickup delay, chance, and scaling are clamped.
 - Player names are validated before command dispatch.
 - Boss death processing is guarded against duplicate death events.
 - Damage tracking is keyed by entity UUID to avoid same-type boss desync.
+- Cancelled, zero, NaN, and infinite damage events are ignored before ranking or rewards.
+- Reward drop spawning validates world/chunk state and fails closed on provider/runtime exceptions.
 - Killall and timeout logic only target configured tracked MythicMobs.
 - Timeout removal clears boss sessions without executing reward logic.
 - Manual commands and manual boss spawns are rate-limited.

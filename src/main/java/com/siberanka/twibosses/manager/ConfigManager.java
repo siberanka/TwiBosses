@@ -486,6 +486,14 @@ public class ConfigManager {
         return this.config.getBoolean("security.spawn.prevent-duplicate-alive-boss", true);
     }
 
+    public int getMaxActiveBossDamageSessions() {
+        return Math.max(1, Math.min(2048, this.config.getInt("security.damage.max-active-boss-sessions", 256)));
+    }
+
+    public int getMaxDamagePlayersPerBoss() {
+        return Math.max(1, Math.min(2048, this.config.getInt("security.damage.max-players-per-boss", 256)));
+    }
+
     public int getMaxRewardCommandsPerRank() {
         return Math.max(1, this.config.getInt("security.rewards.max-commands-per-rank", 8));
     }

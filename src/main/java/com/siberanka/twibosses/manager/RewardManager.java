@@ -46,15 +46,25 @@ public class RewardManager {
             return;
         }
         ArrayList<Map.Entry<UUID, Double>> sortedDamage = new ArrayList<Map.Entry<UUID, Double>>(damageMap.entrySet());
+        sortedDamage.removeIf(entry -> entry.getValue() == null || !Double.isFinite(entry.getValue()) || entry.getValue() <= 0.0);
+        if (sortedDamage.isEmpty()) {
+            return;
+        }
         sortedDamage.sort(Map.Entry.<UUID, Double>comparingByValue().reversed());
-        double totalDamage = damageMap.values().stream().mapToDouble(Double::doubleValue).sum();
+        double totalDamage = sortedDamage.stream().mapToDouble(Map.Entry::getValue).sum();
+        if (!Double.isFinite(totalDamage) || totalDamage <= 0.0) {
+            return;
+        }
         String mobName = this.plugin.getConfigManager().getMobDisplayName(mobType);
         OfflinePlayer killer = Bukkit.getOfflinePlayer((UUID)((UUID)((Map.Entry)sortedDamage.get(0)).getKey()));
         String string = killerName = killer.getName() != null ? killer.getName() : this.plugin.getLanguageManager().raw("general.unknown");
         if (this.plugin.getConfigManager().isDeathSoundEnabled() && deathLocation != null) {
             try {
                 Sound sound = Sound.valueOf((String)this.plugin.getConfigManager().getDeathSoundType());
-                deathLocation.getWorld().playSound(deathLocation, sound, this.plugin.getConfigManager().getDeathSoundVolume(), this.plugin.getConfigManager().getDeathSoundPitch());
+                World soundWorld = deathLocation.getWorld();
+                if (soundWorld != null) {
+                    soundWorld.playSound(deathLocation, sound, this.plugin.getConfigManager().getDeathSoundVolume(), this.plugin.getConfigManager().getDeathSoundPitch());
+                }
             }
             catch (IllegalArgumentException e) {
                 this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.invalid-death-sound", LanguageManager.placeholders("sound", this.plugin.getConfigManager().getDeathSoundType())));
@@ -106,7 +116,7 @@ public class RewardManager {
                 OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer((UUID)((UUID)entry.getKey()));
                 String name = offlinePlayer.getName() != null ? offlinePlayer.getName() : this.plugin.getLanguageManager().raw("general.unknown");
                 double damage = (Double)entry.getValue();
-                double percentage = damage / totalDamage * 100.0;
+                double percentage = totalDamage > 0.0 ? damage / totalDamage * 100.0 : 0.0;
                 String message = this.plugin.getConfigManager().getTopDamagePlayerFormat().replace("{position}", String.valueOf(i + 1)).replace("{player}", name).replace("{damage}", this.damageFormat.format(damage)).replace("{percentage}", this.percentFormat.format(percentage));
                 Bukkit.broadcastMessage((String)ColorUtils.colorize(message));
             }
@@ -272,18 +282,39 @@ public class RewardManager {
             return;
         }
         Location location = drop.dropAtBoss() && context.deathLocation() != null ? context.deathLocation() : context.player().getLocation();
-        World world = location.getWorld();
-        if (world == null) {
+        if (!this.isSafeDropLocation(location)) {
             dropCounter.release();
             return;
         }
-        Item item = world.dropItemNaturally(location, stack.get());
-        item.setPickupDelay(drop.pickupDelayTicks());
-        this.disableMobPickupIfSupported(item);
-        item.setGlowing(drop.glow());
-        if (drop.privateDrop()) {
-            item.setOwner(context.player().getUniqueId());
+        World world = location.getWorld();
+        ItemStack rewardStack = stack.get().clone();
+        rewardStack.setAmount(Math.max(1, Math.min(rewardStack.getAmount(), this.plugin.getConfigManager().getMaxDropStackAmount())));
+        try {
+            Item item = world.dropItemNaturally(location, rewardStack);
+            item.setPickupDelay(drop.pickupDelayTicks());
+            this.disableMobPickupIfSupported(item);
+            item.setGlowing(drop.glow());
+            if (drop.privateDrop()) {
+                item.setOwner(context.player().getUniqueId());
+            }
+        } catch (RuntimeException e) {
+            dropCounter.release();
+            this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                    "logs.reward-drop-spawn-failed",
+                    LanguageManager.placeholders("provider", drop.provider(), "item", drop.item(), "error", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())));
+            this.plugin.logError("logs.reward-drop-spawn-failed", e);
         }
+    }
+
+    private boolean isSafeDropLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return false;
+        }
+        if (!Double.isFinite(location.getX()) || !Double.isFinite(location.getY()) || !Double.isFinite(location.getZ())) {
+            return false;
+        }
+        World world = location.getWorld();
+        return world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4);
     }
 
     private void disableMobPickupIfSupported(Item item) {

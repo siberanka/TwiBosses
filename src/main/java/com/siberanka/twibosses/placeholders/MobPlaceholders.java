@@ -119,6 +119,7 @@ extends PlaceholderExpansion {
             Map<UUID, Double> currentDamageMap = this.plugin.getDamageTracker().getMobDamageMap().get(mobType);
             if (currentDamageMap != null && !currentDamageMap.isEmpty()) {
                 List<Map.Entry<UUID, Double>> sortedDamage = currentDamageMap.entrySet().stream()
+                        .filter(entry -> entry.getValue() != null && Double.isFinite(entry.getValue()) && entry.getValue() > 0.0)
                         .sorted(Map.Entry.<UUID, Double>comparingByValue().reversed())
                         .collect(Collectors.toList());
                 if (position > sortedDamage.size()) {
@@ -127,8 +128,11 @@ extends PlaceholderExpansion {
                 Map.Entry<UUID, Double> entry = sortedDamage.get(position - 1);
                 OfflinePlayer damager = Bukkit.getOfflinePlayer((UUID)((UUID)entry.getKey()));
                 String name = damager.getName() != null ? damager.getName() : this.plugin.getLanguageManager().raw("general.unknown");
-                double totalDamage = currentDamageMap.values().stream().mapToDouble(Double::doubleValue).sum();
-                double percentage = (Double)entry.getValue() / totalDamage * 100.0;
+                double totalDamage = currentDamageMap.values().stream()
+                        .filter(value -> value != null && Double.isFinite(value) && value > 0.0)
+                        .mapToDouble(Double::doubleValue)
+                        .sum();
+                double percentage = totalDamage > 0.0 ? (Double)entry.getValue() / totalDamage * 100.0 : 0.0;
                 return this.plugin.getLanguageManager().get("placeholders.top-format", LanguageManager.placeholders("player", name, "damage", this.damageFormat.format(entry.getValue()), "percentage", this.percentFormat.format(percentage)));
             }
             List<DamageTracker.TopDamageEntry> lastTop = this.plugin.getDamageTracker().getLastTopDamage().get(mobType);
