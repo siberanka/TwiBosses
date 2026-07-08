@@ -5,6 +5,9 @@
 
 tracked-mobs:
   EliteSkeleton:
+    # Optional TwiBosses display name used in Bedrock visuals, holograms, webhooks, broadcasts, and placeholders.
+    # Leave empty to use the MythicMobs display name. If MythicMobs has no display name, the language file fallback is used.
+    display-name: ""
     # Seconds before this boss is removed automatically if it is not killed.
     # -1 disables timeout removal. Timeout removal does not run death rewards.
     timeout-seconds: -1
@@ -164,6 +167,8 @@ tracked-mobs:
               glow: true
 
   BossZombie:
+    # Optional TwiBosses display name. Leave empty to use the MythicMobs display name.
+    display-name: ""
     timeout-seconds: -1
     respawn:
       enabled: true

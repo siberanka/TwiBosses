@@ -33,7 +33,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 ## Installation
 
-1. Download `TwiBosses-1.0.10.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.11.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml`, `plugins/TwiBosses/bosses.yml`, and `plugins/TwiBosses/languages/*.yml`.
@@ -100,6 +100,7 @@ Rank rewards can use the legacy command list format or the structured format bel
 ```yaml
 tracked-mobs:
   EliteSkeleton:
+    display-name: ""
     timeout-seconds: -1
     rewards:
       top-1:
@@ -160,6 +161,8 @@ tracked-mobs:
 `stop-after-first-match: false` lets one player receive every matching permission package, for example both VIP and Elite. Set it to `true` if your permission packages are tiered and only the first matching package should run.
 
 `timeout-seconds` removes a live boss automatically if it is not killed in time. The default `-1` disables timeout removal. Timeout removal cleans runtime state and starts the normal respawn timer when respawn is enabled, but it does not run death rewards.
+
+`display-name` controls the boss name used by TwiBosses in Bedrock visual proxy names, respawn holograms, webhooks, broadcasts, titles, reward messages, and `{mobname}` placeholders. Leave it empty to use the MythicMobs display name. If MythicMobs does not provide one, TwiBosses falls back to the bundled language file value under `mobs.<mobtype>.display-name`, then finally to the mob type id.
 
 Supported drop providers:
 
@@ -380,7 +383,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.10.jar
+target/TwiBosses-1.0.11.jar
 ```
 
 ## Support

@@ -4,6 +4,9 @@ import com.siberanka.twibosses.TwiBosses;
 import com.siberanka.twibosses.rewards.PermissionReward;
 import com.siberanka.twibosses.rewards.RewardBundle;
 import com.siberanka.twibosses.rewards.RewardDrop;
+import io.lumine.mythic.api.mobs.MythicMob;
+import io.lumine.mythic.api.skills.placeholders.PlaceholderString;
+import io.lumine.mythic.bukkit.MythicBukkit;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -379,8 +382,16 @@ public class ConfigManager {
     }
 
     public String getMobDisplayName(String mobType) {
+        String configured = this.cleanDisplayName(this.bossesConfig.getString("tracked-mobs." + mobType + ".display-name", ""));
+        if (!configured.isBlank()) {
+            return configured;
+        }
+        String mythicDisplay = this.getMythicMobDisplayName(mobType);
+        if (!mythicDisplay.isBlank()) {
+            return mythicDisplay;
+        }
         String translated = this.plugin.getLanguageManager().raw("mobs." + mobType + ".display-name");
-        return translated.isBlank() ? mobType : translated;
+        return translated.isBlank() ? mobType : this.cleanDisplayName(translated);
     }
 
     public List<String> getMobAnnouncement(String mobType) {
@@ -916,6 +927,34 @@ public class ConfigManager {
         return Math.max(0.0, Math.min(16.0, value));
     }
 
+    private String getMythicMobDisplayName(String mobType) {
+        try {
+            java.util.Optional<MythicMob> mythicMob = MythicBukkit.inst().getMobManager().getMythicMob(mobType);
+            if (mythicMob.isEmpty()) {
+                return "";
+            }
+            PlaceholderString displayName = mythicMob.get().getDisplayName();
+            return displayName == null ? "" : this.cleanDisplayName(displayName.get());
+        } catch (Throwable throwable) {
+            this.plugin.debug("config", "Could not read MythicMobs display name for mobType=" + mobType
+                    + " error=" + throwable.getClass().getSimpleName() + ":" + throwable.getMessage());
+            return "";
+        }
+    }
+
+    private String cleanDisplayName(String value) {
+        if (value == null) {
+            return "";
+        }
+        String cleaned = value
+                .replace('\r', ' ')
+                .replace('\n', ' ')
+                .replace('\t', ' ')
+                .replaceAll("[\\p{Cntrl}]", "")
+                .trim();
+        return cleaned.length() > 128 ? cleaned.substring(0, 128) : cleaned;
+    }
+
     public int getMaxWebhookContentLength() {
         return Math.max(1, this.intWithLegacy("integrations.webhooks.limits.max-content-length", "security.webhooks.max-content-length", 512));
     }
@@ -1106,6 +1145,7 @@ public class ConfigManager {
         }
         if (Set.of(
                 "respawn", "respawn.enabled", "respawn.time",
+                "display-name",
                 "timeout-seconds",
                 "spawn-time", "spawn-time.enable", "spawn-time.time",
                 "rewards", "participation-reward", "participation-reward.enabled", "participation-reward.min-damage", "participation-reward.commands",
