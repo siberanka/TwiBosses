@@ -41,6 +41,7 @@ security:
   rewards:
     max-commands-per-rank: 8
     max-rank-rewards: 100
+    max-permission-rewards-per-mob: 16
     max-drops-per-reward: 8
     max-total-drops-per-boss: 96
     max-drop-stack-amount: 64
@@ -264,6 +265,51 @@ tracked-mobs:
           drop-at-boss: true
           pickup-delay-ticks: 20
           glow: false
+    permission-rewards:
+      # Extra rewards for players with specific permission nodes.
+      # These are checked once per boss death for every online player who dealt valid damage.
+      # The same command safety checks, item providers, drop caps, private drops, and boss-location checks are used here.
+      enabled: true
+      # false lets a player receive every matching permission package.
+      # true stops after the first matching package in the order below.
+      stop-after-first-match: false
+      rewards:
+        vip:
+          # Give this node with LuckPerms or another permission plugin.
+          permission: twibosses.reward.vip
+          min-damage: 200
+          min-percentage: 0
+          commands:
+            - "eco give {player} 1000"
+          drops:
+            - provider: VANILLA
+              item: GOLD_INGOT
+              amount: 3
+              chance: 1.0
+              amount-per-percent: 0.0
+              max-amount: 3
+              private: true
+              drop-at-boss: true
+              pickup-delay-ticks: 20
+              glow: false
+        elite:
+          permission: twibosses.reward.elite
+          min-damage: 500
+          min-percentage: 5
+          commands:
+            - "eco give {player} 2500"
+          drops:
+            # Custom item providers are also supported here: MYTHICMOBS, ITEMSADDER, NEXO, CRAFTENGINE.
+            - provider: VANILLA
+              item: EMERALD
+              amount: 2
+              chance: 1.0
+              amount-per-percent: 0.0
+              max-amount: 2
+              private: true
+              drop-at-boss: true
+              pickup-delay-ticks: 20
+              glow: true
 
   BossZombie:
     timeout-seconds: -1

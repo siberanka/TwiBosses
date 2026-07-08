@@ -91,6 +91,8 @@ rewards:
   participation-received: "&a¡Recibiste una recompensa de participación!"
   lasthit-broadcast: "&a¡{player} recibió la recompensa del último golpe!"
 
+  permission-received: "&aRecibiste el bonus de permiso {reward} por {mobname}!"
+
 placeholders:
   respawn-countdown: "&a{mobname} reaparecerá en {time}."
   mob-ready: "&aListo"
@@ -162,6 +164,9 @@ updates:
     - "&a==========================================="
 
 logs:
+  reward-command-dispatch-failed: "El comando de recompensa fallo al ejecutarse: {command} ({error})"
+  permission-reward-invalid: "Bonus de permiso invalido omitido '{id}': {reason}"
+  permission-reward-check-failed: "Fallo la comprobacion del bonus de permiso para {player} y {permission}."
   unsupported-version: "Esta versión del servidor no es compatible."
   current-version: "Versión actual: {version}"
   supported-versions: "Versiones compatibles: 1.18.2 - 1.21.11"

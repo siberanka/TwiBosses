@@ -6,7 +6,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 - Per-boss damage tracking with top damage rankings
 - Entity UUID based boss sessions to prevent same-type boss reward desync
-- Rank, participation, and last-hit reward support
+- Rank, participation, last-hit, and permission-based bonus reward support
 - Boss-location item drops with optional player-private pickup ownership
 - Vanilla, MythicMobs, ItemsAdder, Nexo, and CraftEngine reward item providers
 - Damage-percentage based reward scaling for drop amounts
@@ -33,7 +33,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 ## Installation
 
-1. Download `TwiBosses-1.0.6.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.8.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml` and `plugins/TwiBosses/languages/*.yml`.
@@ -113,6 +113,45 @@ tracked-mobs:
             pickup-delay-ticks: 20
             glow: false
 ```
+
+Permission rewards are optional extra packages for players who have configured permission nodes and dealt valid boss damage. They use the same command validation, item providers, drop caps, private drop ownership, and boss-location checks as rank rewards.
+
+```yaml
+tracked-mobs:
+  EliteSkeleton:
+    permission-rewards:
+      enabled: true
+      stop-after-first-match: false
+      rewards:
+        vip:
+          permission: twibosses.reward.vip
+          min-damage: 200
+          min-percentage: 0
+          commands:
+            - "eco give {player} 1000"
+          drops:
+            - provider: VANILLA
+              item: GOLD_INGOT
+              amount: 3
+              chance: 1.0
+              private: true
+              drop-at-boss: true
+        elite:
+          permission: twibosses.reward.elite
+          min-damage: 500
+          min-percentage: 5
+          commands:
+            - "eco give {player} 2500"
+          drops:
+            - provider: CRAFTENGINE
+              item: "server:elite_token"
+              amount: 1
+              chance: 1.0
+              private: true
+              drop-at-boss: true
+```
+
+`stop-after-first-match: false` lets one player receive every matching permission package, for example both VIP and Elite. Set it to `true` if your permission packages are tiered and only the first matching package should run.
 
 `timeout-seconds` removes a live boss automatically if it is not killed in time. The default `-1` disables timeout removal. Timeout removal cleans runtime state and starts the normal respawn timer when respawn is enabled, but it does not run death rewards.
 
@@ -265,6 +304,7 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Reward commands are checked before and after placeholder replacement.
 - Unsafe reward command fragments are blocked.
 - Reward command count and length are limited.
+- Permission reward package count is capped per mob and permission nodes are validated before use.
 - Reward drop providers and item ids are validated before resolution.
 - Reward drops are capped per reward and per boss death.
 - Active boss damage sessions and tracked players per boss are capped to prevent bot-driven memory growth.
@@ -292,7 +332,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.6.jar
+target/TwiBosses-1.0.8.jar
 ```
 
 ## Support

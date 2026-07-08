@@ -1,6 +1,7 @@
 package com.siberanka.twibosses.manager;
 
 import com.siberanka.twibosses.TwiBosses;
+import com.siberanka.twibosses.rewards.PermissionReward;
 import com.siberanka.twibosses.rewards.RewardBundle;
 import com.siberanka.twibosses.rewards.RewardDrop;
 import java.io.File;
@@ -382,6 +383,55 @@ public class ConfigManager {
         return this.readRewardBundle("tracked-mobs." + mobType + ".lasthit-reward");
     }
 
+    public boolean isPermissionRewardsEnabled(String mobType) {
+        return this.config.getBoolean("tracked-mobs." + mobType + ".permission-rewards.enabled", false);
+    }
+
+    public boolean shouldStopAfterFirstPermissionReward(String mobType) {
+        return this.config.getBoolean("tracked-mobs." + mobType + ".permission-rewards.stop-after-first-match", false);
+    }
+
+    public List<PermissionReward> getPermissionRewards(String mobType) {
+        String path = "tracked-mobs." + mobType + ".permission-rewards.rewards";
+        ConfigurationSection section = this.config.getConfigurationSection(path);
+        if (section == null) {
+            return Collections.emptyList();
+        }
+        int maxRewards = this.getMaxPermissionRewardsPerMob();
+        if (maxRewards <= 0) {
+            return Collections.emptyList();
+        }
+        List<PermissionReward> rewards = new ArrayList<>();
+        for (String id : section.getKeys(false)) {
+            if (rewards.size() >= maxRewards) {
+                break;
+            }
+            if (!isSafePermissionRewardId(id)) {
+                this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                        "logs.permission-reward-invalid",
+                        LanguageManager.placeholders("id", id, "reason", "invalid id")));
+                continue;
+            }
+            String rewardPath = path + "." + id;
+            String permission = this.config.getString(rewardPath + ".permission", "");
+            if (!isSafePermissionNode(permission)) {
+                this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                        "logs.permission-reward-invalid",
+                        LanguageManager.placeholders("id", id, "reason", "invalid permission")));
+                continue;
+            }
+            RewardBundle bundle = this.readRewardBundle(rewardPath);
+            if (bundle.isEmpty()) {
+                this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                        "logs.permission-reward-invalid",
+                        LanguageManager.placeholders("id", id, "reason", "empty bundle")));
+                continue;
+            }
+            rewards.add(new PermissionReward(id, permission, bundle));
+        }
+        return rewards;
+    }
+
     public boolean isKillRequirementEnabled(String bossType) {
         return this.config.getBoolean("boss-spawn-conditions.mobs." + bossType + ".required-kills.enabled", false);
     }
@@ -500,6 +550,10 @@ public class ConfigManager {
 
     public int getMaxRewardRanks() {
         return Math.max(1, this.config.getInt("security.rewards.max-rank-rewards", 100));
+    }
+
+    public int getMaxPermissionRewardsPerMob() {
+        return Math.max(0, Math.min(64, this.config.getInt("security.rewards.max-permission-rewards-per-mob", 16)));
     }
 
     public int getMaxDropsPerReward() {
@@ -864,6 +918,7 @@ public class ConfigManager {
                 "spawn-time", "spawn-time.enable", "spawn-time.time",
                 "rewards", "participation-reward", "participation-reward.enabled", "participation-reward.min-damage", "participation-reward.commands",
                 "lasthit-reward", "lasthit-reward.enabled", "lasthit-reward.min-damage", "lasthit-reward.commands",
+                "permission-rewards", "permission-rewards.enabled", "permission-rewards.stop-after-first-match", "permission-rewards.rewards",
                 "bedrock-visual", "bedrock-visual.enabled", "bedrock-visual.vanilla-entity", "bedrock-visual.modeled",
                 "bedrock-visual.only-when-modeled", "bedrock-visual.spawn-delay-ticks", "bedrock-visual.sync-interval-ticks",
                 "bedrock-visual.model-check-radius", "bedrock-visual.hide-nearby-model-parts", "bedrock-visual.model-part-hide-radius",
@@ -876,6 +931,8 @@ public class ConfigManager {
         return relative.matches("rewards\\.top-[1-9][0-9]*\\.(commands|drops|min-damage|min-percentage)")
                 || relative.matches("participation-reward\\.(drops|min-percentage)")
                 || relative.matches("lasthit-reward\\.(drops|min-percentage)")
+                || relative.matches("permission-rewards\\.rewards\\.[A-Za-z0-9_-]{1,48}")
+                || relative.matches("permission-rewards\\.rewards\\.[A-Za-z0-9_-]{1,48}\\.(permission|commands|drops|min-damage|min-percentage)")
                 || relative.matches("bedrock-visual\\.equipment\\.(main-hand|off-hand|helmet|chestplate|leggings|boots)\\.(provider|item|amount)");
     }
 
@@ -1005,6 +1062,20 @@ public class ConfigManager {
             result = fallback;
         }
         return Math.max(min, Math.min(max, result));
+    }
+
+    private static boolean isSafePermissionRewardId(String value) {
+        return value != null && value.matches("[A-Za-z0-9_-]{1,48}");
+    }
+
+    private static boolean isSafePermissionNode(String value) {
+        return value != null
+                && value.length() >= 3
+                && value.length() <= 128
+                && value.matches("[A-Za-z0-9_.-]+")
+                && !value.startsWith(".")
+                && !value.endsWith(".")
+                && !value.contains("..");
     }
 
     private void logInfo(String path) {

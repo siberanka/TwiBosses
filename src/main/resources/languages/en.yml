@@ -91,6 +91,8 @@ rewards:
   participation-received: "&aYou received a participation reward!"
   lasthit-broadcast: "&a{player} received the lasthit reward!"
 
+  permission-received: "&aYou received the {reward} permission bonus for {mobname}!"
+
 placeholders:
   respawn-countdown: "&a{mobname} will respawn in {time}."
   mob-ready: "&aReady"
@@ -162,6 +164,9 @@ updates:
     - "&a==========================================="
 
 logs:
+  reward-command-dispatch-failed: "Reward command failed during dispatch: {command} ({error})"
+  permission-reward-invalid: "Skipped invalid permission reward '{id}': {reason}"
+  permission-reward-check-failed: "Permission reward check failed for {player} and {permission}."
   unsupported-version: "This server version is not supported."
   current-version: "Current version: {version}"
   supported-versions: "Supported versions: 1.18.2 - 1.21.11"

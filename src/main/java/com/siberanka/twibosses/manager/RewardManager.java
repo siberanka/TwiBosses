@@ -2,6 +2,7 @@ package com.siberanka.twibosses.manager;
 
 import com.siberanka.twibosses.TwiBosses;
 import com.siberanka.twibosses.rewards.ItemResolver;
+import com.siberanka.twibosses.rewards.PermissionReward;
 import com.siberanka.twibosses.rewards.RewardBundle;
 import com.siberanka.twibosses.rewards.RewardDrop;
 import com.siberanka.twibosses.utils.ColorUtils;
@@ -105,6 +106,7 @@ public class RewardManager {
             RewardContext context = new RewardContext(onlinePlayer, i + 1, damage, percentage, mobType, mobName, killerName, deathLocation);
             this.applyRewardBundle(bundle, context, dropCounter);
         }
+        this.applyPermissionRewards(mobType, sortedDamage, totalDamage, mobName, killerName, deathLocation, dropCounter);
         if (this.plugin.getConfigManager().isTopDamageBroadcastEnabled()) {
             Bukkit.broadcastMessage((String)ColorUtils.colorize(this.plugin.getConfigManager().getTopDamageHeader()));
             String killerMsg = this.plugin.getConfigManager().getTopDamageKillerFormat().replace("{mobname}", mobName).replace("{killer}", killerName);
@@ -215,6 +217,70 @@ public class RewardManager {
         }
     }
 
+    private void applyPermissionRewards(
+            String mobType,
+            List<Map.Entry<UUID, Double>> sortedDamage,
+            double totalDamage,
+            String mobName,
+            String killerName,
+            Location deathLocation,
+            RewardDropCounter dropCounter) {
+        if (!this.plugin.getConfigManager().isPermissionRewardsEnabled(mobType)) {
+            return;
+        }
+        List<PermissionReward> rewards = this.plugin.getConfigManager().getPermissionRewards(mobType);
+        if (rewards.isEmpty()) {
+            return;
+        }
+        boolean stopAfterFirstMatch = this.plugin.getConfigManager().shouldStopAfterFirstPermissionReward(mobType);
+        for (int i = 0; i < sortedDamage.size(); i++) {
+            Map.Entry<UUID, Double> entry = sortedDamage.get(i);
+            Player player = Bukkit.getPlayer(entry.getKey());
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+            if (!this.plugin.getSecurityGuard().isSafePlayerName(player.getName())) {
+                this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                        "logs.skipped-unsafe-reward-player",
+                        LanguageManager.placeholders("player", player.getName())));
+                continue;
+            }
+            double damage = entry.getValue();
+            double percentage = totalDamage > 0.0 ? damage / totalDamage * 100.0 : 0.0;
+            if (!Double.isFinite(damage) || !Double.isFinite(percentage) || damage <= 0.0) {
+                continue;
+            }
+            RewardContext context = new RewardContext(player, i + 1, damage, percentage, mobType, mobName, killerName, deathLocation);
+            for (PermissionReward reward : rewards) {
+                if (!this.hasRewardPermission(player, reward)) {
+                    continue;
+                }
+                if (!this.meetsRewardRequirements(reward.bundle(), damage, percentage)) {
+                    continue;
+                }
+                this.applyRewardBundle(reward.bundle(), context, dropCounter);
+                player.sendMessage(this.plugin.getLanguageManager().get(
+                        "rewards.permission-received",
+                        LanguageManager.placeholders("reward", reward.id(), "mobname", mobName)));
+                if (stopAfterFirstMatch) {
+                    break;
+                }
+            }
+        }
+    }
+
+    private boolean hasRewardPermission(Player player, PermissionReward reward) {
+        try {
+            return player.hasPermission(reward.permission());
+        } catch (RuntimeException e) {
+            this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                    "logs.permission-reward-check-failed",
+                    LanguageManager.placeholders("player", player.getName(), "permission", reward.permission())));
+            this.plugin.logError("logs.permission-reward-check-failed", e);
+            return false;
+        }
+    }
+
     public void applyLastHitReward(String mobType, Player player, double damage, double totalDamage, Location deathLocation) {
         this.applyLastHitReward(mobType, player, damage, totalDamage, deathLocation, new RewardDropCounter(this.plugin.getConfigManager().getMaxTotalDropsPerBoss()));
     }
@@ -261,7 +327,14 @@ public class RewardManager {
             this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.blocked-reward-command-after-placeholder", LanguageManager.placeholders("command", command)));
             return;
         }
-        Bukkit.dispatchCommand((CommandSender)Bukkit.getConsoleSender(), (String)finalCommand);
+        try {
+            Bukkit.dispatchCommand((CommandSender)Bukkit.getConsoleSender(), (String)finalCommand);
+        } catch (RuntimeException e) {
+            this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
+                    "logs.reward-command-dispatch-failed",
+                    LanguageManager.placeholders("command", command, "error", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())));
+            this.plugin.logError("logs.reward-command-dispatch-failed", e);
+        }
     }
 
     private void dropReward(RewardDrop drop, RewardContext context, RewardDropCounter dropCounter) {

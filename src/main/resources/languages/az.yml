@@ -91,6 +91,8 @@ rewards:
   participation-received: "&aİştirak mükafatı aldın!"
   lasthit-broadcast: "&a{player} son vuruş mükafatını aldı!"
 
+  permission-received: "&a{mobname} ucun {reward} permission bonusunu aldin!"
+
 placeholders:
   respawn-countdown: "&a{mobname} {time} sonra yenidən doğulacaq."
   mob-ready: "&aHazır"
@@ -162,6 +164,9 @@ updates:
     - "&a==========================================="
 
 logs:
+  reward-command-dispatch-failed: "Mukafat emri icra edilende xeta verdi: {command} ({error})"
+  permission-reward-invalid: "Kecersiz permission mukafati atlandi '{id}': {reason}"
+  permission-reward-check-failed: "{player} ucun {permission} permission mukafati yoxlamasi ugursuz oldu."
   unsupported-version: "Bu server versiyası dəstəklənmir."
   current-version: "Cari versiya: {version}"
   supported-versions: "Dəstəklənən versiyalar: 1.18.2 - 1.21.11"

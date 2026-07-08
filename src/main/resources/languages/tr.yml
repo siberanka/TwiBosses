@@ -91,6 +91,8 @@ rewards:
   participation-received: "&aKatılım ödülü aldın!"
   lasthit-broadcast: "&a{player} son vuruş ödülünü aldı!"
 
+  permission-received: "&a{mobname} icin {reward} permission bonusunu aldin!"
+
 placeholders:
   respawn-countdown: "&a{mobname} {time} sonra yeniden doğacak."
   mob-ready: "&aHazır"
@@ -162,6 +164,9 @@ updates:
     - "&a==========================================="
 
 logs:
+  reward-command-dispatch-failed: "Odul komutu calistirilirken hata verdi: {command} ({error})"
+  permission-reward-invalid: "Gecersiz permission odulu atlandi '{id}': {reason}"
+  permission-reward-check-failed: "{player} icin {permission} permission odulu kontrolu basarisiz oldu."
   unsupported-version: "Bu sunucu sürümü desteklenmiyor."
   current-version: "Mevcut sürüm: {version}"
   supported-versions: "Desteklenen sürümler: 1.18.2 - 1.21.11"
