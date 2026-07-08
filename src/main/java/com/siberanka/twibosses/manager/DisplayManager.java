@@ -87,6 +87,7 @@ public class DisplayManager {
             }
             catch (IllegalArgumentException e) {
                 this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.invalid-spawn-sound", LanguageManager.placeholders("sound", this.plugin.getConfigManager().getSpawnSoundType())));
+                this.plugin.logError("logs.invalid-spawn-sound", e);
             }
         }
     }

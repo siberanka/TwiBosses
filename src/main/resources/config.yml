@@ -47,6 +47,17 @@ metrics:
   log-startup: true
   error-reporting: false
 
+logging:
+  error-log:
+    # Writes plugin-related warnings/errors and stack traces to plugins/TwiBosses/error.log.
+    enabled: true
+    # true logs WARNING and SEVERE records; false logs only SEVERE records.
+    include-warnings: true
+    # Active error.log is rotated when it reaches this size.
+    max-size-kb: 1024
+    # Number of rotated files to keep: error.log.1, error.log.2, ...
+    max-archives: 3
+
 updates:
   enabled: false
 

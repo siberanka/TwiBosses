@@ -58,6 +58,7 @@ public class SpawnManager {
             }
             catch (IOException e) {
                 this.plugin.getLogger().severe(this.plugin.getLanguageManager().raw("logs.data-create-failed", LanguageManager.placeholders("error", e.getMessage())));
+                this.plugin.logError("logs.data-create-failed", e);
             }
         }
         this.dataConfig = YamlConfiguration.loadConfiguration((File)this.dataFile);
@@ -96,6 +97,7 @@ public class SpawnManager {
         }
         catch (IOException e) {
             this.plugin.getLogger().severe(this.plugin.getLanguageManager().raw("logs.respawn-save-failed", LanguageManager.placeholders("mobtype", mobType, "error", e.getMessage())));
+            this.plugin.logError("logs.respawn-save-failed:" + mobType, e);
         }
     }
 
@@ -106,6 +108,7 @@ public class SpawnManager {
         }
         catch (IOException e) {
             this.plugin.getLogger().severe(this.plugin.getLanguageManager().raw("logs.respawn-clear-failed", LanguageManager.placeholders("mobtype", mobType, "error", e.getMessage())));
+            this.plugin.logError("logs.respawn-clear-failed:" + mobType, e);
         }
     }
 
@@ -127,6 +130,7 @@ public class SpawnManager {
         }
         catch (IOException e) {
             this.plugin.getLogger().severe(this.plugin.getLanguageManager().raw("logs.spawn-save-failed", LanguageManager.placeholders("mobtype", mobType, "error", e.getMessage())));
+            this.plugin.logError("logs.spawn-save-failed:" + mobType, e);
         }
     }
 
@@ -395,6 +399,7 @@ public class SpawnManager {
         }
         catch (IOException e) {
             this.plugin.getLogger().severe(this.plugin.getLanguageManager().raw("logs.spawn-delete-failed", LanguageManager.placeholders("mobtype", mobType, "error", e.getMessage())));
+            this.plugin.logError("logs.spawn-delete-failed:" + mobType, e);
             return false;
         }
     }

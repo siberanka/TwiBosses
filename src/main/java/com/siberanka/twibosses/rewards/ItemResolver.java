@@ -41,6 +41,7 @@ public final class ItemResolver {
                             "provider", drop.provider(),
                             "item", drop.item(),
                             "error", ex.getClass().getSimpleName())));
+            this.plugin.logError("logs.reward-drop-resolve-failed:" + drop.provider() + ":" + drop.item(), ex);
             return Optional.empty();
         }
     }

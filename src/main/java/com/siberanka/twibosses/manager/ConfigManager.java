@@ -89,6 +89,7 @@ public class ConfigManager {
         }
         catch (Exception e) {
             this.logWarning("logs.configuration-repair-failed", Map.of("error", e.getMessage()));
+            this.plugin.logError("logs.configuration-repair-failed", e);
         }
     }
 
@@ -442,6 +443,22 @@ public class ConfigManager {
 
     public boolean isUpdateCheckEnabled() {
         return this.config.getBoolean("updates.enabled", false);
+    }
+
+    public boolean isErrorLogEnabled() {
+        return this.config.getBoolean("logging.error-log.enabled", true);
+    }
+
+    public boolean shouldErrorLogIncludeWarnings() {
+        return this.config.getBoolean("logging.error-log.include-warnings", true);
+    }
+
+    public int getErrorLogMaxSizeKb() {
+        return Math.max(64, Math.min(16_384, this.config.getInt("logging.error-log.max-size-kb", 1024)));
+    }
+
+    public int getErrorLogMaxArchives() {
+        return Math.max(1, Math.min(10, this.config.getInt("logging.error-log.max-archives", 3)));
     }
 
     public int getMaxPlayerCommandsPerMinute() {

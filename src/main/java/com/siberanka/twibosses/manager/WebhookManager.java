@@ -126,6 +126,7 @@ public class WebhookManager {
             }
             catch (Exception e) {
                 this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.webhook-send-failed", LanguageManager.placeholders("error", e.getMessage())));
+                this.plugin.logError("logs.webhook-send-failed", e);
             } finally {
                 if (connection != null) {
                     connection.disconnect();

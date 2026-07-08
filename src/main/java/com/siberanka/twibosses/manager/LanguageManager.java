@@ -127,6 +127,7 @@ public final class LanguageManager {
             this.languages.put(code.toLowerCase(Locale.ROOT), language);
         } catch (Exception ex) {
             this.plugin.getLogger().warning(this.bootstrapRaw("logs.language-load-failed", placeholders("language", code, "error", ex.getMessage())));
+            this.plugin.logError("logs.language-load-failed:" + code, ex);
         }
     }
 

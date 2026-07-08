@@ -5,6 +5,7 @@ import com.siberanka.twibosses.listeners.DamageTracker;
 import com.siberanka.twibosses.listeners.KillTracker;
 import com.siberanka.twibosses.manager.ConfigManager;
 import com.siberanka.twibosses.manager.DisplayManager;
+import com.siberanka.twibosses.manager.ErrorLogManager;
 import com.siberanka.twibosses.manager.HologramManager;
 import com.siberanka.twibosses.manager.LanguageManager;
 import com.siberanka.twibosses.manager.RewardManager;
@@ -34,9 +35,28 @@ extends JavaPlugin {
     private KillTracker killTracker;
     private SecurityGuard securityGuard;
     private LanguageManager languageManager;
+    private ErrorLogManager errorLogManager;
 
     public void onEnable() {
+        this.errorLogManager = new ErrorLogManager(this);
+        this.errorLogManager.install();
+        try {
+            this.enablePlugin();
+        } catch (Throwable throwable) {
+            String message = this.rawLogMessage("logs.plugin-enable-failed");
+            this.getLogger().severe(message);
+            this.logError(message, throwable);
+            Bukkit.getPluginManager().disablePlugin((Plugin)this);
+            if (throwable instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new RuntimeException(throwable);
+        }
+    }
+
+    private void enablePlugin() {
         this.configManager = new ConfigManager(this);
+        this.errorLogManager.reload();
         this.languageManager = new LanguageManager(this);
         if (!VersionSupport.isSupported()) {
             this.getLogger().severe(this.languageManager.raw("logs.unsupported-version"));
@@ -103,10 +123,16 @@ extends JavaPlugin {
         if (this.languageManager != null) {
             Banner.disable(this, this.getDescription());
         }
+        if (this.errorLogManager != null) {
+            this.errorLogManager.uninstall();
+        }
     }
 
     public void reloadPluginConfiguration() {
         this.configManager.reloadConfig();
+        if (this.errorLogManager != null) {
+            this.errorLogManager.reload();
+        }
         this.languageManager.reload();
         if (this.displayManager != null) {
             this.displayManager.reload();
@@ -154,6 +180,24 @@ extends JavaPlugin {
 
     public LanguageManager getLanguageManager() {
         return this.languageManager;
+    }
+
+    public ErrorLogManager getErrorLogManager() {
+        return this.errorLogManager;
+    }
+
+    public void logError(String message, Throwable throwable) {
+        if (this.errorLogManager != null) {
+            this.errorLogManager.log(message, throwable);
+        }
+    }
+
+    private String rawLogMessage(String path) {
+        if (this.languageManager == null) {
+            return path;
+        }
+        String message = this.languageManager.raw(path);
+        return message.isBlank() ? path : message;
     }
 }
 

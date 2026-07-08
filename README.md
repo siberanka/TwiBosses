@@ -29,7 +29,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 ## Installation
 
-1. Download `TwiBosses-1.0.1.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.2.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml` and `plugins/TwiBosses/languages/*.yml`.
@@ -131,6 +131,23 @@ plugins/TwiBosses/file-backups
 
 Dynamic boss, reward, webhook, and per-mob language sections are preserved when they match the supported schema.
 
+Plugin-related warnings, severe errors, uncaught plugin exceptions, and detailed stack traces are written to:
+
+```text
+plugins/TwiBosses/error.log
+```
+
+The file is size-limited and rotated with `error.log.1`, `error.log.2`, and so on:
+
+```yaml
+logging:
+  error-log:
+    enabled: true
+    include-warnings: true
+    max-size-kb: 1024
+    max-archives: 3
+```
+
 ## Placeholders
 
 TwiBosses registers the `twibosses` PlaceholderAPI expansion when PlaceholderAPI is installed.
@@ -161,6 +178,7 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Manual commands and manual boss spawns are rate-limited.
 - Webhook URLs must be HTTPS Discord webhook URLs.
 - Webhook payloads are length-limited and sanitized.
+- Plugin-related errors are captured in a rotating `error.log` with stack traces.
 - Reload and shutdown paths cancel plugin tasks and clear runtime state.
 
 ## Build
@@ -172,7 +190,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.1.jar
+target/TwiBosses-1.0.2.jar
 ```
 
 ## Support

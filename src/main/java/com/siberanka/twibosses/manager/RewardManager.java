@@ -58,6 +58,7 @@ public class RewardManager {
             }
             catch (IllegalArgumentException e) {
                 this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.invalid-death-sound", LanguageManager.placeholders("sound", this.plugin.getConfigManager().getDeathSoundType())));
+                this.plugin.logError("logs.invalid-death-sound", e);
             }
         }
         if (this.plugin.getConfigManager().isDeathTitleEnabled()) {
@@ -180,7 +181,7 @@ public class RewardManager {
                 return PlaceholderHook.setPlaceholders(player, text);
             }
             catch (Throwable throwable) {
-                // empty catch block
+                this.plugin.logError(this.plugin.getLanguageManager().raw("logs.placeholder-parse-failed"), throwable);
             }
         }
         return text;

@@ -57,6 +57,7 @@ implements Listener {
             }
             catch (IOException e) {
                 this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("updates.check-failed", LanguageManager.placeholders("error", e.getMessage())));
+                this.plugin.logError("updates.check-failed", e);
             } finally {
                 if (connection != null) {
                     connection.disconnect();
