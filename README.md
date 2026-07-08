@@ -33,7 +33,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 ## Installation
 
-1. Download `TwiBosses-1.0.5.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.6.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml` and `plugins/TwiBosses/languages/*.yml`.
@@ -74,7 +74,18 @@ Core runtime settings are stored in:
 plugins/TwiBosses/config.yml
 ```
 
-`config.yml` controls mechanics, security limits, tracked mobs, rewards, spawn rules, webhook endpoints, hologram provider selection, metrics, and update checks.
+`config.yml` is organized by ownership:
+
+| Section | Purpose |
+| --- | --- |
+| `settings` | Language and simple plugin-level preferences. |
+| `runtime` | Update checks, metrics, and rotating plugin error logs. |
+| `security` | Rate limits, command validation, reward limits, and anti-abuse caps. |
+| `integrations` | Holograms, Bedrock visual proxies, and Discord webhooks. |
+| `display` | Titles, action bar, top damage display, sounds, and hologram toggles. |
+| `tracked-mobs` | Boss-specific respawn, timeout, Bedrock visual, reward, and schedule settings. |
+
+Older config paths from previous releases are migrated into this layout during startup or `/twiboss reload`. The previous file is backed up before repair.
 
 Rank rewards can use the legacy command list format or the structured format below. Structured rewards support console commands and physical drops at the boss death location.
 
@@ -122,8 +133,9 @@ TwiBosses can hide configured modeled MythicMobs from Floodgate players and show
 This feature is disabled by default and requires Floodgate on the backend server:
 
 ```yaml
-bedrock-visuals:
-  enabled: true
+integrations:
+  bedrock-visuals:
+    enabled: true
 
 tracked-mobs:
   EliteSkeleton:
@@ -146,15 +158,41 @@ tracked-mobs:
 Bedrock hits on the proxy can be forwarded to the real MythicMob, so existing damage rankings, thresholds, and rewards continue to use the real boss session. Proxy hit forwarding is rate-limited and damage-capped:
 
 ```yaml
-security:
+integrations:
   bedrock-visuals:
-    max-proxy-hits-per-player-per-second: 8
-    max-forwarded-damage: 1000.0
+    limits:
+      max-proxy-hits-per-player-per-second: 8
+      max-forwarded-damage: 1000.0
 ```
 
 Equipment slots support vanilla items and the same custom item providers used by reward drops: `VANILLA`, `MYTHICMOBS`, `ITEMSADDER`, `NEXO`, and `CRAFTENGINE`.
 
 The Bedrock proxy syncs position, yaw, pitch, fire state, configured equipment, visible health ratio, hurt animation, and death animation from the real boss session. Java players never receive the proxy view.
+
+Discord webhook endpoints are configured in one place under `integrations.webhooks.mobs`:
+
+```yaml
+integrations:
+  webhooks:
+    enabled: true
+    limits:
+      max-content-length: 512
+      max-field-length: 1024
+      connect-timeout-ms: 4000
+      read-timeout-ms: 4000
+    mobs:
+      EliteSkeleton:
+        spawn:
+          enabled: false
+          url: ""
+          avatar-url: ""
+          embed-thumbnail: ""
+        death:
+          enabled: false
+          url: ""
+          avatar-url: ""
+          embed-thumbnail: ""
+```
 
 All editable text is stored in:
 
@@ -193,12 +231,13 @@ plugins/TwiBosses/error.log
 The file is size-limited and rotated with `error.log.1`, `error.log.2`, and so on:
 
 ```yaml
-logging:
-  error-log:
-    enabled: true
-    include-warnings: true
-    max-size-kb: 1024
-    max-archives: 3
+runtime:
+  logging:
+    error-log:
+      enabled: true
+      include-warnings: true
+      max-size-kb: 1024
+      max-archives: 3
 ```
 
 ## Placeholders
@@ -246,7 +285,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.5.jar
+target/TwiBosses-1.0.6.jar
 ```
 
 ## Support

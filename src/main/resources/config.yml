@@ -1,5 +1,30 @@
+# TwiBosses main configuration
+#
+# Text shown to players is stored in languages/*.yml.
+# This file only controls mechanics, integrations, limits, and boss definitions.
+
 settings:
+  # Bundled languages: tr, en, az, es
   language: tr
+
+runtime:
+  updates:
+    # Checks GitHub Releases for newer TwiBosses versions.
+    enabled: false
+  metrics:
+    enabled: true
+    log-startup: true
+    error-reporting: false
+  logging:
+    error-log:
+      # Writes plugin-related warnings/errors and stack traces to plugins/TwiBosses/error.log.
+      enabled: true
+      # true logs WARNING and SEVERE records; false logs only SEVERE records.
+      include-warnings: true
+      # Active error.log is rotated when it reaches this size.
+      max-size-kb: 1024
+      # Number of rotated files to keep: error.log.1, error.log.2, ...
+      max-archives: 3
 
 security:
   commands:
@@ -18,6 +43,7 @@ security:
     default-private-drops: true
     default-pickup-delay-ticks: 20
     max-command-length: 180
+    # If this list is empty, every command is allowed unless blocked below.
     allowed-command-prefixes:
       - "give"
       - "eco give"
@@ -36,39 +62,38 @@ security:
       - "reload"
       - "pl"
       - "plugins"
-  webhooks:
-    max-content-length: 512
-    max-field-length: 1024
-    connect-timeout-ms: 4000
-    read-timeout-ms: 4000
+
+integrations:
+  holograms:
+    # NONE, FANCY, or DECENT.
+    provider: NONE
   bedrock-visuals:
-    # Limits how quickly one Bedrock player can forward hits from a visual proxy to the real boss.
-    max-proxy-hits-per-player-per-second: 8
-    # Hard cap for one forwarded proxy hit. Keeps malformed damage events from becoming instant-kill payloads.
-    max-forwarded-damage: 1000.0
-
-metrics:
-  enabled: true
-  log-startup: true
-  error-reporting: false
-
-logging:
-  error-log:
-    # Writes plugin-related warnings/errors and stack traces to plugins/TwiBosses/error.log.
+    # Requires Floodgate on the backend server. Java players keep seeing the original MythicMob/model.
+    enabled: false
+    limits:
+      # Limits how quickly one Bedrock player can forward hits from a visual proxy to the real boss.
+      max-proxy-hits-per-player-per-second: 8
+      # Hard cap for one forwarded proxy hit. Keeps malformed damage events from becoming instant-kill payloads.
+      max-forwarded-damage: 1000.0
+  webhooks:
     enabled: true
-    # true logs WARNING and SEVERE records; false logs only SEVERE records.
-    include-warnings: true
-    # Active error.log is rotated when it reaches this size.
-    max-size-kb: 1024
-    # Number of rotated files to keep: error.log.1, error.log.2, ...
-    max-archives: 3
-
-updates:
-  enabled: false
-
-bedrock-visuals:
-  # Requires Floodgate on the backend server. Java players keep seeing the original MythicMob/model.
-  enabled: false
+    limits:
+      max-content-length: 512
+      max-field-length: 1024
+      connect-timeout-ms: 4000
+      read-timeout-ms: 4000
+    mobs:
+      EliteSkeleton:
+        spawn:
+          enabled: false
+          url: ""
+          avatar-url: ""
+          embed-thumbnail: ""
+        death:
+          enabled: false
+          url: ""
+          avatar-url: ""
+          embed-thumbnail: ""
 
 display:
   actionbar:
@@ -105,22 +130,32 @@ display:
 
 tracked-mobs:
   EliteSkeleton:
+    # Seconds before this boss is removed automatically if it is not killed.
+    # -1 disables timeout removal. Timeout removal does not run death rewards.
+    timeout-seconds: -1
+    respawn:
+      enabled: true
+      time: 300
+    spawn-time:
+      enable: false
+      time:
+        - "08:00:00"
+        - "12:00:00"
+        - "18:30:00"
     bedrock-visual:
       # When enabled, Bedrock players see this boss as a vanilla mob instead of the Java model.
       enabled: false
-      # The vanilla mob shown to Bedrock players. Use Bukkit EntityType names, for example ZOMBIE, SKELETON, WITHER_SKELETON.
+      # Bukkit EntityType name shown to Bedrock players.
       vanilla-entity: SKELETON
-      # auto tries to detect ModelEngine/BetterModel model parts. Use true to force, false to never treat as modeled.
+      # auto detects common ModelEngine/BetterModel parts. Use true to force, false to disable model detection.
       modeled: auto
       # true keeps non-modeled MythicMobs unchanged for Bedrock players.
       only-when-modeled: true
-      # Delay lets ModelEngine/BetterModel create model parts before detection.
+      # Delay lets model providers create their parts before detection.
       spawn-delay-ticks: 10
       # Lower values follow the real boss more closely. Keep at 2+ for busy servers.
       sync-interval-ticks: 2
-      # Radius used to detect model provider parts around the boss.
       model-check-radius: 4.0
-      # Hides detected nearby model parts from Bedrock players.
       hide-nearby-model-parts: true
       model-part-hide-radius: 4.0
       # Bedrock hits on the vanilla proxy are forwarded to the real MythicMob.
@@ -137,26 +172,15 @@ tracked-mobs:
         chestplate: AIR
         leggings: AIR
         boots: AIR
-    # Seconds before this boss is removed automatically if it is not killed.
-    # -1 disables timeout removal.
-    timeout-seconds: -1
-    respawn:
-      enabled: true
-      time: 300
-    spawn-time:
-      enable: false
-      time:
-        - "08:00:00"
-        - "12:00:00"
-        - "18:30:00"
     rewards:
       top-1:
-        # commands are executed by console after security validation.
+        min-damage: 0
+        min-percentage: 0
+        # Commands are executed by console after security validation.
         # Available placeholders: {player}, {rank}, {position}, {damage}, {percentage}, {mobtype}, {mobname}, {killer}
         commands:
           - "give {player} diamond 5"
           - "eco give {player} 5000"
-        # drops fall at the boss death location by default.
         # provider: VANILLA, MYTHICMOBS, ITEMSADDER, NEXO, CRAFTENGINE
         # private: true sets the dropped item owner to the rewarded player.
         # amount-per-percent increases amount by floor(damage_percentage * value), capped by max-amount.
@@ -204,6 +228,7 @@ tracked-mobs:
     participation-reward:
       enabled: true
       min-damage: 200
+      min-percentage: 0
       commands:
         - "give {player} diamond 1"
       drops:
@@ -220,6 +245,7 @@ tracked-mobs:
     lasthit-reward:
       enabled: true
       min-damage: 200
+      min-percentage: 0
       commands:
         - "give {player} diamond 1"
       drops:
@@ -233,7 +259,12 @@ tracked-mobs:
           drop-at-boss: true
           pickup-delay-ticks: 20
           glow: false
+
   BossZombie:
+    timeout-seconds: -1
+    respawn:
+      enabled: true
+      time: 300
     bedrock-visual:
       enabled: false
       vanilla-entity: ZOMBIE
@@ -257,10 +288,6 @@ tracked-mobs:
         chestplate: AIR
         leggings: AIR
         boots: AIR
-    timeout-seconds: -1
-    respawn:
-      enabled: true
-      time: 300
     rewards:
       top-1:
         commands:
@@ -310,6 +337,7 @@ tracked-mobs:
     participation-reward:
       enabled: true
       min-damage: 200
+      min-percentage: 0
       commands:
         - "give {player} diamond 1"
       drops:
@@ -326,6 +354,7 @@ tracked-mobs:
     lasthit-reward:
       enabled: true
       min-damage: 200
+      min-percentage: 0
       commands:
         - "give {player} diamond 1"
       drops:
@@ -366,32 +395,12 @@ placeholders:
   damage-format: "#.##"
   percentage-format: "#.#"
 
-discord:
-  webhook:
-    enabled: true
-
-webhooks:
-  EliteSkeleton:
-    spawn:
-      enabled: false
-      url: ""
-      avatar-url: ""
-      embed-thumbnail: ""
-    death:
-      enabled: false
-      url: ""
-      avatar-url: ""
-      embed-thumbnail: ""
-
 mob-settings:
   movement-restriction:
     enabled: true
     max-distance: 7
     check-interval: 2
     teleport-back: true
-
-hologram:
-  provider: NONE
 
 boss-health:
   announcements:

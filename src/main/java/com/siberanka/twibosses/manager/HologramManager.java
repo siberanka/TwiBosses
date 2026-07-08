@@ -19,7 +19,7 @@ public class HologramManager {
     }
 
     private void setupHologramProvider() {
-        String type = this.plugin.getConfig().getString("hologram.provider", "NONE").toUpperCase();
+        String type = this.plugin.getConfigManager().getHologramProvider().toUpperCase();
         boolean bl = this.enabled = !type.equals("NONE");
         if (!this.enabled) {
             return;

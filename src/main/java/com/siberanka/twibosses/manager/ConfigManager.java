@@ -52,7 +52,7 @@ public class ConfigManager {
                 return;
             }
             YamlConfiguration diskConfig = YamlConfiguration.loadConfiguration(configFile);
-            boolean updated = false;
+            boolean updated = this.migrateLegacyConfig(diskConfig);
             List<String> existingKeys = new ArrayList<>(diskConfig.getKeys(true));
             existingKeys.sort((left, right) -> Integer.compare(depth(right), depth(left)));
             for (String key : existingKeys) {
@@ -435,39 +435,39 @@ public class ConfigManager {
     }
 
     public boolean isMetricsEnabled() {
-        return this.config.getBoolean("metrics.enabled", true);
+        return this.booleanWithLegacy("runtime.metrics.enabled", "metrics.enabled", true);
     }
 
     public String getServerUUID() {
-        return this.config.getString("metrics.server-uuid", "");
+        return this.stringWithLegacy("runtime.metrics.server-uuid", "metrics.server-uuid", "");
     }
 
     public boolean isLogStartupEnabled() {
-        return this.config.getBoolean("metrics.log-startup", true);
+        return this.booleanWithLegacy("runtime.metrics.log-startup", "metrics.log-startup", true);
     }
 
     public boolean isErrorReportingEnabled() {
-        return this.config.getBoolean("metrics.error-reporting", true);
+        return this.booleanWithLegacy("runtime.metrics.error-reporting", "metrics.error-reporting", true);
     }
 
     public boolean isUpdateCheckEnabled() {
-        return this.config.getBoolean("updates.enabled", false);
+        return this.booleanWithLegacy("runtime.updates.enabled", "updates.enabled", false);
     }
 
     public boolean isErrorLogEnabled() {
-        return this.config.getBoolean("logging.error-log.enabled", true);
+        return this.booleanWithLegacy("runtime.logging.error-log.enabled", "logging.error-log.enabled", true);
     }
 
     public boolean shouldErrorLogIncludeWarnings() {
-        return this.config.getBoolean("logging.error-log.include-warnings", true);
+        return this.booleanWithLegacy("runtime.logging.error-log.include-warnings", "logging.error-log.include-warnings", true);
     }
 
     public int getErrorLogMaxSizeKb() {
-        return Math.max(64, Math.min(16_384, this.config.getInt("logging.error-log.max-size-kb", 1024)));
+        return Math.max(64, Math.min(16_384, this.intWithLegacy("runtime.logging.error-log.max-size-kb", "logging.error-log.max-size-kb", 1024)));
     }
 
     public int getErrorLogMaxArchives() {
-        return Math.max(1, Math.min(10, this.config.getInt("logging.error-log.max-archives", 3)));
+        return Math.max(1, Math.min(10, this.intWithLegacy("runtime.logging.error-log.max-archives", "logging.error-log.max-archives", 3)));
     }
 
     public int getMaxPlayerCommandsPerMinute() {
@@ -511,11 +511,17 @@ public class ConfigManager {
     }
 
     public int getMaxBedrockProxyHitsPerSecond() {
-        return Math.max(1, Math.min(40, this.config.getInt("security.bedrock-visuals.max-proxy-hits-per-player-per-second", 8)));
+        return Math.max(1, Math.min(40, this.intWithLegacy(
+                "integrations.bedrock-visuals.limits.max-proxy-hits-per-player-per-second",
+                "security.bedrock-visuals.max-proxy-hits-per-player-per-second",
+                8)));
     }
 
     public double getMaxForwardedBedrockProxyDamage() {
-        double value = this.config.getDouble("security.bedrock-visuals.max-forwarded-damage", 1000.0);
+        double value = this.doubleWithLegacy(
+                "integrations.bedrock-visuals.limits.max-forwarded-damage",
+                "security.bedrock-visuals.max-forwarded-damage",
+                1000.0);
         if (!Double.isFinite(value)) {
             return 1000.0;
         }
@@ -543,7 +549,7 @@ public class ConfigManager {
     }
 
     public boolean isBedrockVisualsEnabled() {
-        return this.config.getBoolean("bedrock-visuals.enabled", false);
+        return this.booleanWithLegacy("integrations.bedrock-visuals.enabled", "bedrock-visuals.enabled", false);
     }
 
     public boolean isBedrockVisualEnabled(String mobType) {
@@ -682,43 +688,55 @@ public class ConfigManager {
     }
 
     public int getMaxWebhookContentLength() {
-        return Math.max(1, this.config.getInt("security.webhooks.max-content-length", 512));
+        return Math.max(1, this.intWithLegacy("integrations.webhooks.limits.max-content-length", "security.webhooks.max-content-length", 512));
     }
 
     public int getMaxWebhookFieldLength() {
-        return Math.max(1, this.config.getInt("security.webhooks.max-field-length", 1024));
+        return Math.max(1, this.intWithLegacy("integrations.webhooks.limits.max-field-length", "security.webhooks.max-field-length", 1024));
     }
 
     public int getWebhookConnectTimeoutMs() {
-        return Math.max(1000, this.config.getInt("security.webhooks.connect-timeout-ms", 4000));
+        return Math.max(1000, this.intWithLegacy("integrations.webhooks.limits.connect-timeout-ms", "security.webhooks.connect-timeout-ms", 4000));
     }
 
     public int getWebhookReadTimeoutMs() {
-        return Math.max(1000, this.config.getInt("security.webhooks.read-timeout-ms", 4000));
+        return Math.max(1000, this.intWithLegacy("integrations.webhooks.limits.read-timeout-ms", "security.webhooks.read-timeout-ms", 4000));
     }
 
     public boolean isWebhookEnabled() {
-        return this.config.getBoolean("discord.webhook.enabled", false);
+        return this.booleanWithLegacy("integrations.webhooks.enabled", "discord.webhook.enabled", false);
     }
 
     public String getWebhookUrl() {
-        return this.config.getString("discord.webhook.url", "");
+        return this.stringWithLegacy("integrations.webhooks.url", "discord.webhook.url", "");
     }
 
     public String getWebhookFormat(String event) {
-        return this.config.getString("discord.webhook." + event + "-format", event.equals("spawn") ? "{mobname} has spawned at {location}" : "{mobname} has been defeated!");
+        return this.stringWithLegacy(
+                "integrations.webhooks." + event + "-format",
+                "discord.webhook." + event + "-format",
+                event.equals("spawn") ? "{mobname} has spawned at {location}" : "{mobname} has been defeated!");
     }
 
     public String getWebhookMentions(String event) {
-        return this.config.getString("discord.webhook." + event + "-mentions", "");
+        return this.stringWithLegacy("integrations.webhooks." + event + "-mentions", "discord.webhook." + event + "-mentions", "");
     }
 
     public Map<String, Object> getWebhookConfig(String mobType, String event) {
-        ConfigurationSection section = this.getConfig().getConfigurationSection("webhook.mobs." + mobType + "." + event);
+        ConfigurationSection section = this.getWebhookSection(mobType, event);
         if (section == null) {
             return Collections.emptyMap();
         }
         return section.getValues(true);
+    }
+
+    public ConfigurationSection getWebhookSection(String mobType, String event) {
+        ConfigurationSection section = this.config.getConfigurationSection("integrations.webhooks.mobs." + mobType + "." + event);
+        return section != null ? section : this.config.getConfigurationSection("webhooks." + mobType + "." + event);
+    }
+
+    public String getHologramProvider() {
+        return this.stringWithLegacy("integrations.holograms.provider", "hologram.provider", "NONE");
     }
 
     public boolean isMobMovementRestricted() {
@@ -761,6 +779,58 @@ public class ConfigManager {
         return this.config;
     }
 
+    private boolean migrateLegacyConfig(YamlConfiguration config) {
+        boolean changed = false;
+        changed |= this.copyIfPresent(config, "metrics.enabled", "runtime.metrics.enabled");
+        changed |= this.copyIfPresent(config, "metrics.log-startup", "runtime.metrics.log-startup");
+        changed |= this.copyIfPresent(config, "metrics.error-reporting", "runtime.metrics.error-reporting");
+        changed |= this.copyIfPresent(config, "metrics.server-uuid", "runtime.metrics.server-uuid");
+        changed |= this.copyIfPresent(config, "updates.enabled", "runtime.updates.enabled");
+        changed |= this.copyIfPresent(config, "logging.error-log", "runtime.logging.error-log");
+        changed |= this.copyIfPresent(config, "hologram.provider", "integrations.holograms.provider");
+        changed |= this.copyIfPresent(config, "bedrock-visuals.enabled", "integrations.bedrock-visuals.enabled");
+        changed |= this.copyIfPresent(config, "security.bedrock-visuals.max-proxy-hits-per-player-per-second", "integrations.bedrock-visuals.limits.max-proxy-hits-per-player-per-second");
+        changed |= this.copyIfPresent(config, "security.bedrock-visuals.max-forwarded-damage", "integrations.bedrock-visuals.limits.max-forwarded-damage");
+        changed |= this.copyIfPresent(config, "security.webhooks.max-content-length", "integrations.webhooks.limits.max-content-length");
+        changed |= this.copyIfPresent(config, "security.webhooks.max-field-length", "integrations.webhooks.limits.max-field-length");
+        changed |= this.copyIfPresent(config, "security.webhooks.connect-timeout-ms", "integrations.webhooks.limits.connect-timeout-ms");
+        changed |= this.copyIfPresent(config, "security.webhooks.read-timeout-ms", "integrations.webhooks.limits.read-timeout-ms");
+        changed |= this.copyIfPresent(config, "discord.webhook.enabled", "integrations.webhooks.enabled");
+        changed |= this.copyIfPresent(config, "discord.webhook.url", "integrations.webhooks.url");
+        changed |= this.copyIfPresent(config, "discord.webhook.spawn-format", "integrations.webhooks.spawn-format");
+        changed |= this.copyIfPresent(config, "discord.webhook.death-format", "integrations.webhooks.death-format");
+        changed |= this.copyIfPresent(config, "discord.webhook.spawn-mentions", "integrations.webhooks.spawn-mentions");
+        changed |= this.copyIfPresent(config, "discord.webhook.death-mentions", "integrations.webhooks.death-mentions");
+        changed |= this.copyIfPresent(config, "webhooks", "integrations.webhooks.mobs");
+        return changed;
+    }
+
+    private boolean copyIfPresent(YamlConfiguration config, String legacyPath, String newPath) {
+        if (!config.contains(legacyPath) || config.contains(newPath)) {
+            return false;
+        }
+        Object value = config.get(legacyPath);
+        if (value instanceof ConfigurationSection section) {
+            config.createSection(newPath, this.sectionToMap(section));
+        } else {
+            config.set(newPath, value);
+        }
+        return true;
+    }
+
+    private Map<String, Object> sectionToMap(ConfigurationSection section) {
+        Map<String, Object> values = new HashMap<>();
+        for (String key : section.getKeys(false)) {
+            Object value = section.get(key);
+            if (value instanceof ConfigurationSection nested) {
+                values.put(key, this.sectionToMap(nested));
+            } else {
+                values.put(key, value);
+            }
+        }
+        return values;
+    }
+
     private boolean isAllowedConfigPath(String path, YamlConfiguration defaults) {
         if (defaults.contains(path)) {
             return true;
@@ -768,7 +838,7 @@ public class ConfigManager {
         return matchesTrackedMobSchema(path)
                 || matchesBossConditionSchema(path)
                 || matchesDamagePerMobSchema(path)
-                || matchesWebhookSchema(path);
+                || matchesIntegrationWebhookSchema(path);
     }
 
     private boolean matchesTrackedMobSchema(String path) {
@@ -834,17 +904,36 @@ public class ConfigManager {
         return relative.isEmpty() || "minimum-damage".equals(relative);
     }
 
-    private boolean matchesWebhookSchema(String path) {
+    private boolean matchesIntegrationWebhookSchema(String path) {
         String[] parts = path.split("\\.");
-        if (parts.length < 3 || !"webhooks".equals(parts[0])) {
+        if (parts.length < 5
+                || !"integrations".equals(parts[0])
+                || !"webhooks".equals(parts[1])
+                || !"mobs".equals(parts[2])) {
             return false;
         }
-        if (!Set.of("spawn", "death").contains(parts[2])) {
+        if (!Set.of("spawn", "death").contains(parts[4])) {
             return false;
         }
-        String relative = parts.length == 3 ? "" : String.join(".", List.of(parts).subList(3, parts.length));
+        String relative = parts.length == 5 ? "" : String.join(".", List.of(parts).subList(5, parts.length));
         return relative.isEmpty()
                 || Set.of("enabled", "url", "avatar-url", "embed-thumbnail").contains(relative);
+    }
+
+    private boolean booleanWithLegacy(String path, String legacyPath, boolean fallback) {
+        return this.config.contains(path) ? this.config.getBoolean(path, fallback) : this.config.getBoolean(legacyPath, fallback);
+    }
+
+    private int intWithLegacy(String path, String legacyPath, int fallback) {
+        return this.config.contains(path) ? this.config.getInt(path, fallback) : this.config.getInt(legacyPath, fallback);
+    }
+
+    private double doubleWithLegacy(String path, String legacyPath, double fallback) {
+        return this.config.contains(path) ? this.config.getDouble(path, fallback) : this.config.getDouble(legacyPath, fallback);
+    }
+
+    private String stringWithLegacy(String path, String legacyPath, String fallback) {
+        return this.config.contains(path) ? this.config.getString(path, fallback) : this.config.getString(legacyPath, fallback);
     }
 
     private void backup(File file, String prefix) throws IOException {

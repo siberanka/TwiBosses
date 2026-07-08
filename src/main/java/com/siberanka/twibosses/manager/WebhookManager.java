@@ -30,7 +30,7 @@ public class WebhookManager {
     }
 
     private void sendWebhook(String mobType, String event, Location location, String killer) {
-        ConfigurationSection section = this.plugin.getConfig().getConfigurationSection("webhooks." + mobType + "." + event);
+        ConfigurationSection section = this.plugin.getConfigManager().getWebhookSection(mobType, event);
         if (section == null || !section.getBoolean("enabled", false)) {
             return;
         }
