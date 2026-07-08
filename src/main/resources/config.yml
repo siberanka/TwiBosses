@@ -41,6 +41,11 @@ security:
     max-field-length: 1024
     connect-timeout-ms: 4000
     read-timeout-ms: 4000
+  bedrock-visuals:
+    # Limits how quickly one Bedrock player can forward hits from a visual proxy to the real boss.
+    max-proxy-hits-per-player-per-second: 8
+    # Hard cap for one forwarded proxy hit. Keeps malformed damage events from becoming instant-kill payloads.
+    max-forwarded-damage: 1000.0
 
 metrics:
   enabled: true
@@ -59,6 +64,10 @@ logging:
     max-archives: 3
 
 updates:
+  enabled: false
+
+bedrock-visuals:
+  # Requires Floodgate on the backend server. Java players keep seeing the original MythicMob/model.
   enabled: false
 
 display:
@@ -96,6 +105,38 @@ display:
 
 tracked-mobs:
   EliteSkeleton:
+    bedrock-visual:
+      # When enabled, Bedrock players see this boss as a vanilla mob instead of the Java model.
+      enabled: false
+      # The vanilla mob shown to Bedrock players. Use Bukkit EntityType names, for example ZOMBIE, SKELETON, WITHER_SKELETON.
+      vanilla-entity: SKELETON
+      # auto tries to detect ModelEngine/BetterModel model parts. Use true to force, false to never treat as modeled.
+      modeled: auto
+      # true keeps non-modeled MythicMobs unchanged for Bedrock players.
+      only-when-modeled: true
+      # Delay lets ModelEngine/BetterModel create model parts before detection.
+      spawn-delay-ticks: 10
+      # Lower values follow the real boss more closely. Keep at 2+ for busy servers.
+      sync-interval-ticks: 2
+      # Radius used to detect model provider parts around the boss.
+      model-check-radius: 4.0
+      # Hides detected nearby model parts from Bedrock players.
+      hide-nearby-model-parts: true
+      model-part-hide-radius: 4.0
+      # Bedrock hits on the vanilla proxy are forwarded to the real MythicMob.
+      forward-proxy-damage: true
+      silent: true
+      name-visible: true
+      equipment:
+        main-hand:
+          provider: VANILLA
+          item: BOW
+          amount: 1
+        off-hand: AIR
+        helmet: AIR
+        chestplate: AIR
+        leggings: AIR
+        boots: AIR
     respawn:
       enabled: true
       time: 300
@@ -190,6 +231,29 @@ tracked-mobs:
           pickup-delay-ticks: 20
           glow: false
   BossZombie:
+    bedrock-visual:
+      enabled: false
+      vanilla-entity: ZOMBIE
+      modeled: auto
+      only-when-modeled: true
+      spawn-delay-ticks: 10
+      sync-interval-ticks: 2
+      model-check-radius: 4.0
+      hide-nearby-model-parts: true
+      model-part-hide-radius: 4.0
+      forward-proxy-damage: true
+      silent: true
+      name-visible: true
+      equipment:
+        main-hand:
+          provider: VANILLA
+          item: IRON_SWORD
+          amount: 1
+        off-hand: AIR
+        helmet: AIR
+        chestplate: AIR
+        leggings: AIR
+        boots: AIR
     respawn:
       enabled: true
       time: 300

@@ -140,6 +140,9 @@ implements Listener {
             this.rebuildMobAggregate(mobType);
             this.announcedThresholds.put(event.getEntity().getUniqueId(), new HashSet());
             this.lastTopDamage.remove(mobType);
+            if (this.plugin.getBedrockVisualManager() != null) {
+                this.plugin.getBedrockVisualManager().registerBoss(mobType, event.getEntity());
+            }
         }
     }
 
@@ -168,6 +171,9 @@ implements Listener {
             this.entityDamageMap.put(entityId, new HashMap());
             this.rebuildMobAggregate(mobType);
             this.plugin.getSpawnManager().markMobSpawned(mobType, entityId);
+            if (this.plugin.getBedrockVisualManager() != null) {
+                this.plugin.getBedrockVisualManager().registerBoss(mobType, spawnedMob.getEntity().getBukkitEntity());
+            }
             this.plugin.getDisplayManager().showMobSpawn(mobType, location);
             this.plugin.getWebhookManager().sendSpawnWebhook(mobType, location);
             if (this.plugin.getConfigManager().isMobMovementRestricted()) {

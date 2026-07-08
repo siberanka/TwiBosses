@@ -4,6 +4,7 @@ import com.siberanka.twibosses.commands.CommandManager;
 import com.siberanka.twibosses.listeners.DamageTracker;
 import com.siberanka.twibosses.listeners.KillTracker;
 import com.siberanka.twibosses.manager.ConfigManager;
+import com.siberanka.twibosses.manager.BedrockVisualManager;
 import com.siberanka.twibosses.manager.DisplayManager;
 import com.siberanka.twibosses.manager.ErrorLogManager;
 import com.siberanka.twibosses.manager.HologramManager;
@@ -36,6 +37,7 @@ extends JavaPlugin {
     private SecurityGuard securityGuard;
     private LanguageManager languageManager;
     private ErrorLogManager errorLogManager;
+    private BedrockVisualManager bedrockVisualManager;
 
     public void onEnable() {
         this.errorLogManager = new ErrorLogManager(this);
@@ -84,6 +86,7 @@ extends JavaPlugin {
             return;
         }
         this.rewardManager = new RewardManager(this);
+        this.bedrockVisualManager = new BedrockVisualManager(this);
         this.damageTracker = new DamageTracker(this);
         this.displayManager = new DisplayManager(this);
         this.commandManager = new CommandManager(this);
@@ -101,6 +104,7 @@ extends JavaPlugin {
         }
         this.getServer().getPluginManager().registerEvents((Listener)this.damageTracker, (Plugin)this);
         this.getServer().getPluginManager().registerEvents((Listener)this.killTracker, (Plugin)this);
+        this.getServer().getPluginManager().registerEvents((Listener)this.bedrockVisualManager, (Plugin)this);
         this.getLogger().info(this.languageManager.raw("logs.plugin-enabled"));
     }
 
@@ -116,6 +120,9 @@ extends JavaPlugin {
         }
         if (this.hologramManager != null) {
             this.hologramManager.cleanup();
+        }
+        if (this.bedrockVisualManager != null) {
+            this.bedrockVisualManager.cleanup();
         }
         if (this.securityGuard != null) {
             this.securityGuard.clear();
@@ -139,6 +146,9 @@ extends JavaPlugin {
         }
         if (this.hologramManager != null) {
             this.hologramManager.reload();
+        }
+        if (this.bedrockVisualManager != null) {
+            this.bedrockVisualManager.reload();
         }
     }
 
@@ -168,6 +178,10 @@ extends JavaPlugin {
 
     public HologramManager getHologramManager() {
         return this.hologramManager;
+    }
+
+    public BedrockVisualManager getBedrockVisualManager() {
+        return this.bedrockVisualManager;
     }
 
     public KillTracker getKillTracker() {

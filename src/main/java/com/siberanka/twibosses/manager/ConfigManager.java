@@ -24,6 +24,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.EntityType;
 
 public class ConfigManager {
     private static final DateTimeFormatter BACKUP_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
@@ -501,6 +502,18 @@ public class ConfigManager {
         return Math.max(8, Math.min(128, this.config.getInt("security.rewards.max-item-id-length", 96)));
     }
 
+    public int getMaxBedrockProxyHitsPerSecond() {
+        return Math.max(1, Math.min(40, this.config.getInt("security.bedrock-visuals.max-proxy-hits-per-player-per-second", 8)));
+    }
+
+    public double getMaxForwardedBedrockProxyDamage() {
+        double value = this.config.getDouble("security.bedrock-visuals.max-forwarded-damage", 1000.0);
+        if (!Double.isFinite(value)) {
+            return 1000.0;
+        }
+        return Math.max(1.0, Math.min(100_000.0, value));
+    }
+
     public boolean isPrivateDropDefault() {
         return this.config.getBoolean("security.rewards.default-private-drops", true);
     }
@@ -519,6 +532,88 @@ public class ConfigManager {
 
     public List<String> getBlockedRewardCommandFragments() {
         return this.config.getStringList("security.rewards.blocked-command-fragments");
+    }
+
+    public boolean isBedrockVisualsEnabled() {
+        return this.config.getBoolean("bedrock-visuals.enabled", false);
+    }
+
+    public boolean isBedrockVisualEnabled(String mobType) {
+        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.enabled", false);
+    }
+
+    public EntityType getBedrockVisualEntityType(String mobType) {
+        String configured = this.config.getString("tracked-mobs." + mobType + ".bedrock-visual.vanilla-entity", "ZOMBIE");
+        try {
+            return EntityType.valueOf(configured == null ? "ZOMBIE" : configured.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    public String getBedrockVisualModelMode(String mobType) {
+        Object value = this.config.get("tracked-mobs." + mobType + ".bedrock-visual.modeled");
+        if (value instanceof Boolean bool) {
+            return bool ? "true" : "false";
+        }
+        return value instanceof String string ? string.trim().toLowerCase() : "auto";
+    }
+
+    public boolean isBedrockVisualModelForced(String mobType) {
+        String mode = this.getBedrockVisualModelMode(mobType);
+        return "true".equals(mode) || "force".equals(mode) || "forced".equals(mode);
+    }
+
+    public boolean shouldOnlyUseBedrockVisualWhenModeled(String mobType) {
+        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.only-when-modeled", true);
+    }
+
+    public int getBedrockVisualSpawnDelayTicks(String mobType) {
+        return Math.max(1, Math.min(200, this.config.getInt("tracked-mobs." + mobType + ".bedrock-visual.spawn-delay-ticks", 10)));
+    }
+
+    public int getBedrockVisualSyncIntervalTicks(String mobType) {
+        return Math.max(1, Math.min(40, this.config.getInt("tracked-mobs." + mobType + ".bedrock-visual.sync-interval-ticks", 2)));
+    }
+
+    public double getBedrockVisualModelCheckRadius(String mobType) {
+        return this.clampedBedrockRadius("tracked-mobs." + mobType + ".bedrock-visual.model-check-radius", 4.0);
+    }
+
+    public boolean shouldHideNearbyModelParts(String mobType) {
+        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.hide-nearby-model-parts", true);
+    }
+
+    public double getModelPartHideRadius(String mobType) {
+        return this.clampedBedrockRadius("tracked-mobs." + mobType + ".bedrock-visual.model-part-hide-radius", 4.0);
+    }
+
+    public boolean shouldForwardBedrockProxyDamage(String mobType) {
+        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.forward-proxy-damage", true);
+    }
+
+    public boolean isBedrockVisualSilent(String mobType) {
+        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.silent", true);
+    }
+
+    public boolean isBedrockVisualNameVisible(String mobType) {
+        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.name-visible", true);
+    }
+
+    public EquipmentItem getBedrockVisualEquipmentItem(String mobType, String slot) {
+        String path = "tracked-mobs." + mobType + ".bedrock-visual.equipment." + slot;
+        if (this.config.isString(path)) {
+            String item = this.config.getString(path, "AIR");
+            return new EquipmentItem("VANILLA", item == null ? "AIR" : item, 1);
+        }
+        ConfigurationSection section = this.config.getConfigurationSection(path);
+        if (section == null) {
+            return new EquipmentItem("VANILLA", "AIR", 1);
+        }
+        String provider = section.getString("provider", "VANILLA");
+        String item = section.getString("item", "AIR");
+        int amount = Math.max(1, Math.min(this.getMaxDropStackAmount(), section.getInt("amount", 1)));
+        return new EquipmentItem(provider == null ? "VANILLA" : provider, item == null ? "AIR" : item, amount);
     }
 
     private RewardBundle readRewardBundle(String path) {
@@ -568,6 +663,14 @@ public class ConfigManager {
             drops.add(new RewardDrop(provider, item, amount, chance, amountPerPercent, maxAmount, privateDrop, dropAtBoss, pickupDelay, glow));
         }
         return drops;
+    }
+
+    private double clampedBedrockRadius(String path, double fallback) {
+        double value = this.config.getDouble(path, fallback);
+        if (!Double.isFinite(value)) {
+            value = fallback;
+        }
+        return Math.max(0.0, Math.min(16.0, value));
     }
 
     public int getMaxWebhookContentLength() {
@@ -673,13 +776,20 @@ public class ConfigManager {
                 "respawn", "respawn.enabled", "respawn.time",
                 "spawn-time", "spawn-time.enable", "spawn-time.time",
                 "rewards", "participation-reward", "participation-reward.enabled", "participation-reward.min-damage", "participation-reward.commands",
-                "lasthit-reward", "lasthit-reward.enabled", "lasthit-reward.min-damage", "lasthit-reward.commands"
+                "lasthit-reward", "lasthit-reward.enabled", "lasthit-reward.min-damage", "lasthit-reward.commands",
+                "bedrock-visual", "bedrock-visual.enabled", "bedrock-visual.vanilla-entity", "bedrock-visual.modeled",
+                "bedrock-visual.only-when-modeled", "bedrock-visual.spawn-delay-ticks", "bedrock-visual.sync-interval-ticks",
+                "bedrock-visual.model-check-radius", "bedrock-visual.hide-nearby-model-parts", "bedrock-visual.model-part-hide-radius",
+                "bedrock-visual.forward-proxy-damage", "bedrock-visual.silent", "bedrock-visual.name-visible", "bedrock-visual.equipment",
+                "bedrock-visual.equipment.main-hand", "bedrock-visual.equipment.off-hand", "bedrock-visual.equipment.helmet",
+                "bedrock-visual.equipment.chestplate", "bedrock-visual.equipment.leggings", "bedrock-visual.equipment.boots"
         ).contains(relative) || relative.matches("rewards\\.top-[1-9][0-9]*")) {
             return true;
         }
         return relative.matches("rewards\\.top-[1-9][0-9]*\\.(commands|drops|min-damage|min-percentage)")
                 || relative.matches("participation-reward\\.(drops|min-percentage)")
-                || relative.matches("lasthit-reward\\.(drops|min-percentage)");
+                || relative.matches("lasthit-reward\\.(drops|min-percentage)")
+                || relative.matches("bedrock-visual\\.equipment\\.(main-hand|off-hand|helmet|chestplate|leggings|boots)\\.(provider|item|amount)");
     }
 
     private boolean isLegacyRewardListPath(String path, YamlConfiguration diskConfig) {
@@ -805,6 +915,9 @@ public class ConfigManager {
             return;
         }
         this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(path, placeholders));
+    }
+
+    public record EquipmentItem(String provider, String item, int amount) {
     }
 }
 

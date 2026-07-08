@@ -148,6 +148,9 @@ public class SpawnManager {
             this.movementCheckers.get(mobType).cancel();
             this.movementCheckers.remove(mobType);
         }
+        if (this.plugin.getBedrockVisualManager() != null) {
+            this.plugin.getBedrockVisualManager().unregisterBossByMobType(mobType);
+        }
         this.spawnedStatus.put(mobType, false);
         this.spawnedEntityIds.remove(mobType);
         if (!this.plugin.getConfigManager().isMobRespawnEnabled(mobType)) {
@@ -247,6 +250,9 @@ public class SpawnManager {
             UUID spawnedId = mythicMob.getEntity().getUniqueId();
             this.spawnedStatus.put(mobType, true);
             this.spawnedEntityIds.put(mobType, spawnedId);
+            if (this.plugin.getBedrockVisualManager() != null) {
+                this.plugin.getBedrockVisualManager().registerBoss(mobType, mythicMob.getEntity().getBukkitEntity());
+            }
             this.respawnTimes.remove(mobType);
             this.clearRespawnTime(mobType);
             if (this.announcementTasks.containsKey(mobType)) {
@@ -392,6 +398,9 @@ public class SpawnManager {
         this.spawnLocations.remove(mobType);
         this.spawnedEntityIds.remove(mobType);
         this.spawnedStatus.remove(mobType);
+        if (this.plugin.getBedrockVisualManager() != null) {
+            this.plugin.getBedrockVisualManager().unregisterBossByMobType(mobType);
+        }
         this.spawnConfig.set("spawns." + mobType, null);
         try {
             this.spawnConfig.save(this.spawnFile);

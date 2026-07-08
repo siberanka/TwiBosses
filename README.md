@@ -10,6 +10,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 - Boss-location item drops with optional player-private pickup ownership
 - Vanilla, MythicMobs, ItemsAdder, Nexo, and CraftEngine reward item providers
 - Damage-percentage based reward scaling for drop amounts
+- Optional Floodgate-aware Bedrock vanilla boss visuals for modeled MythicMobs
 - Reward command validation with allowlists, blocked fragments, command length limits, and player name checks
 - Manual spawn cooldowns and command rate limits
 - Respawn timers with persistent `data.yml` storage
@@ -26,10 +27,12 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 - Optional: PlaceholderAPI
 - Optional: FancyHolograms or DecentHolograms
 - Optional: ItemsAdder, Nexo, or CraftEngine for custom reward drops
+- Optional: Floodgate for Bedrock vanilla boss visuals
+- Optional: ModelEngine or BetterModel when using modeled MythicMobs
 
 ## Installation
 
-1. Download `TwiBosses-1.0.2.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.3.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml` and `plugins/TwiBosses/languages/*.yml`.
@@ -103,6 +106,45 @@ Supported drop providers:
 
 `private: true` assigns the dropped item owner to the rewarded player through the Bukkit/Paper item owner API. This lets supported servers expose boss-location rewards only to the intended player while keeping the drop visible and natural.
 
+## Bedrock Visuals
+
+TwiBosses can hide configured modeled MythicMobs from Floodgate players and show a synchronized vanilla mob proxy instead. Java players keep seeing the original MythicMobs, ModelEngine, or BetterModel presentation.
+
+This feature is disabled by default and requires Floodgate on the backend server:
+
+```yaml
+bedrock-visuals:
+  enabled: true
+
+tracked-mobs:
+  EliteSkeleton:
+    bedrock-visual:
+      enabled: true
+      vanilla-entity: SKELETON
+      modeled: auto
+      only-when-modeled: true
+      forward-proxy-damage: true
+      equipment:
+        main-hand:
+          provider: VANILLA
+          item: BOW
+          amount: 1
+        helmet: AIR
+```
+
+`modeled: auto` checks common ModelEngine and BetterModel markers and nearby model part entities. Use `modeled: true` only when a specific boss must always use the Bedrock proxy. `only-when-modeled: true` keeps non-modeled MythicMobs unchanged for Bedrock players.
+
+Bedrock hits on the proxy can be forwarded to the real MythicMob, so existing damage rankings, thresholds, and rewards continue to use the real boss session. Proxy hit forwarding is rate-limited and damage-capped:
+
+```yaml
+security:
+  bedrock-visuals:
+    max-proxy-hits-per-player-per-second: 8
+    max-forwarded-damage: 1000.0
+```
+
+Equipment slots support vanilla items and the same custom item providers used by reward drops: `VANILLA`, `MYTHICMOBS`, `ITEMSADDER`, `NEXO`, and `CRAFTENGINE`.
+
 All editable text is stored in:
 
 ```text
@@ -171,6 +213,7 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Reward command count and length are limited.
 - Reward drop providers and item ids are validated before resolution.
 - Reward drops are capped per reward and per boss death.
+- Bedrock visual proxy damage is rate-limited and capped before forwarding to the real boss.
 - Drop stack amounts, item id length, pickup delay, chance, and scaling are clamped.
 - Player names are validated before command dispatch.
 - Boss death processing is guarded against duplicate death events.
@@ -190,7 +233,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.2.jar
+target/TwiBosses-1.0.3.jar
 ```
 
 ## Support

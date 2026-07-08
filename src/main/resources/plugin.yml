@@ -11,6 +11,9 @@ softdepend:
   - ItemsAdder
   - Nexo
   - CraftEngine
+  - floodgate
+  - ModelEngine
+  - BetterModel
 commands:
   twiboss:
     description: Main command for TwiBosses
