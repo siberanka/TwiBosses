@@ -78,7 +78,14 @@ public final class BedrockVisualManager implements Listener {
         if (entity == null) {
             return;
         }
-        VisualSession session = this.sessionsByOriginal.remove(entity.getUniqueId());
+        this.unregisterBoss(entity.getUniqueId());
+    }
+
+    public void unregisterBoss(UUID entityId) {
+        if (entityId == null) {
+            return;
+        }
+        VisualSession session = this.sessionsByOriginal.remove(entityId);
         if (session != null) {
             this.destroySession(session, false);
         }

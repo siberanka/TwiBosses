@@ -15,10 +15,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -34,6 +38,7 @@ public class SpawnManager {
     private final Map<String, BukkitTask> respawnTasks;
     private final Map<String, BukkitTask> announcementTasks;
     private final Map<String, BukkitTask> movementCheckers;
+    private final Map<UUID, BukkitTask> timeoutTasks;
     private final Map<String, Boolean> spawnedStatus = new HashMap<String, Boolean>();
     private final Map<String, UUID> spawnedEntityIds = new HashMap<String, UUID>();
     private BukkitTask scheduledSpawnTask;
@@ -45,6 +50,7 @@ public class SpawnManager {
         this.respawnTasks = new HashMap<String, BukkitTask>();
         this.announcementTasks = new HashMap<String, BukkitTask>();
         this.movementCheckers = new HashMap<String, BukkitTask>();
+        this.timeoutTasks = new HashMap<UUID, BukkitTask>();
         this.loadDataFile();
         this.loadSpawnLocations();
         this.startScheduledSpawnTask();
@@ -135,24 +141,19 @@ public class SpawnManager {
     }
 
     public void handleMobDeath(final String mobType, Location deathLocation) {
-        Location spawnLoc;
+        this.handleMobDeath(mobType, deathLocation, null);
+    }
+
+    public void handleMobDeath(final String mobType, Location deathLocation, UUID entityId) {
         if (!this.plugin.getConfigManager().getTrackedMobs().contains(mobType)) {
             return;
         }
-        this.removeExistingHologram(mobType);
-        if (this.announcementTasks.containsKey(mobType)) {
-            this.announcementTasks.get(mobType).cancel();
-            this.announcementTasks.remove(mobType);
-        }
-        if (this.movementCheckers.containsKey(mobType)) {
-            this.movementCheckers.get(mobType).cancel();
-            this.movementCheckers.remove(mobType);
-        }
-        if (this.plugin.getBedrockVisualManager() != null) {
-            this.plugin.getBedrockVisualManager().unregisterBossByMobType(mobType);
-        }
-        this.spawnedStatus.put(mobType, false);
-        this.spawnedEntityIds.remove(mobType);
+        this.cleanupBossRuntime(mobType, entityId, false);
+        this.scheduleRespawn(mobType);
+    }
+
+    private void scheduleRespawn(final String mobType) {
+        Location spawnLoc;
         if (!this.plugin.getConfigManager().isMobRespawnEnabled(mobType)) {
             return;
         }
@@ -248,8 +249,7 @@ public class SpawnManager {
                 return;
             }
             UUID spawnedId = mythicMob.getEntity().getUniqueId();
-            this.spawnedStatus.put(mobType, true);
-            this.spawnedEntityIds.put(mobType, spawnedId);
+            this.trackSpawnedBoss(mobType, spawnedId);
             if (this.plugin.getBedrockVisualManager() != null) {
                 this.plugin.getBedrockVisualManager().registerBoss(mobType, mythicMob.getEntity().getBukkitEntity());
             }
@@ -360,12 +360,14 @@ public class SpawnManager {
         this.respawnTasks.values().forEach(BukkitTask::cancel);
         this.announcementTasks.values().forEach(BukkitTask::cancel);
         this.movementCheckers.values().forEach(BukkitTask::cancel);
+        this.timeoutTasks.values().forEach(BukkitTask::cancel);
         if (this.scheduledSpawnTask != null) {
             this.scheduledSpawnTask.cancel();
         }
         this.respawnTasks.clear();
         this.announcementTasks.clear();
         this.movementCheckers.clear();
+        this.timeoutTasks.clear();
         this.respawnTimes.clear();
         this.spawnedEntityIds.clear();
         this.spawnedStatus.clear();
@@ -431,8 +433,138 @@ public class SpawnManager {
     }
 
     public void markMobSpawned(String mobType, UUID entityId) {
+        this.trackSpawnedBoss(mobType, entityId);
+    }
+
+    public void trackSpawnedBoss(String mobType, UUID entityId) {
+        if (entityId == null || !this.plugin.getConfigManager().getTrackedMobs().contains(mobType)) {
+            return;
+        }
         this.spawnedStatus.put(mobType, true);
         this.spawnedEntityIds.put(mobType, entityId);
+        this.scheduleBossTimeout(mobType, entityId);
+    }
+
+    public KillAllResult killAllBosses(String mobTypeFilter, String worldNameFilter) {
+        int matched = 0;
+        int killed = 0;
+        int failed = 0;
+        World worldFilter = null;
+        if (worldNameFilter != null && !worldNameFilter.isBlank()) {
+            worldFilter = Bukkit.getWorld(worldNameFilter);
+            if (worldFilter == null) {
+                return new KillAllResult(0, 0, 0, true);
+            }
+        }
+        for (ActiveMob activeMob : new ArrayList<>(MythicBukkit.inst().getMobManager().getActiveMobs())) {
+            String mobType = activeMob.getMobType();
+            if (!this.plugin.getConfigManager().getTrackedMobs().contains(mobType)) {
+                continue;
+            }
+            if (mobTypeFilter != null && !mobTypeFilter.equals(mobType)) {
+                continue;
+            }
+            Entity entity = activeMob.getEntity() == null ? null : activeMob.getEntity().getBukkitEntity();
+            if (!(entity instanceof LivingEntity livingEntity) || livingEntity.isDead() || !livingEntity.isValid()) {
+                continue;
+            }
+            if (worldFilter != null && !worldFilter.equals(livingEntity.getWorld())) {
+                continue;
+            }
+            matched++;
+            try {
+                this.cancelBossTimeout(livingEntity.getUniqueId());
+                livingEntity.setHealth(0.0);
+                killed++;
+            } catch (Throwable throwable) {
+                failed++;
+                this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.killall-failed",
+                        LanguageManager.placeholders("mobtype", mobType)));
+                this.plugin.logError("logs.killall-failed:" + mobType, throwable);
+            }
+        }
+        return new KillAllResult(matched, killed, failed, false);
+    }
+
+    private void scheduleBossTimeout(String mobType, UUID entityId) {
+        this.cancelBossTimeout(entityId);
+        int timeoutSeconds = this.plugin.getConfigManager().getMobTimeoutSeconds(mobType);
+        if (timeoutSeconds < 0) {
+            return;
+        }
+        BukkitTask task = new BukkitRunnable() {
+            @Override
+            public void run() {
+                SpawnManager.this.timeoutBoss(mobType, entityId);
+            }
+        }.runTaskLater((Plugin)this.plugin, (long)timeoutSeconds * 20L);
+        this.timeoutTasks.put(entityId, task);
+    }
+
+    private void timeoutBoss(String mobType, UUID entityId) {
+        this.timeoutTasks.remove(entityId);
+        Optional<ActiveMob> activeMob = MythicBukkit.inst().getMobManager().getActiveMob(entityId);
+        if (activeMob.isEmpty()) {
+            this.cleanupBossRuntime(mobType, entityId, true);
+            return;
+        }
+        Entity entity = activeMob.get().getEntity() == null ? null : activeMob.get().getEntity().getBukkitEntity();
+        Location location = entity == null ? null : entity.getLocation();
+        try {
+            if (this.plugin.getBedrockVisualManager() != null) {
+                this.plugin.getBedrockVisualManager().unregisterBoss(entityId);
+            }
+            activeMob.get().remove();
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+            }
+            this.plugin.getLogger().info(this.plugin.getLanguageManager().raw("logs.boss-timeout-removed",
+                    LanguageManager.placeholders("mobtype", mobType, "world", location == null || location.getWorld() == null ? "unknown" : location.getWorld().getName())));
+        } catch (Throwable throwable) {
+            this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw("logs.boss-timeout-remove-failed",
+                    LanguageManager.placeholders("mobtype", mobType, "error", throwable.getClass().getSimpleName())));
+            this.plugin.logError("logs.boss-timeout-remove-failed:" + mobType, throwable);
+        }
+        this.cleanupBossRuntime(mobType, entityId, true);
+        this.scheduleRespawn(mobType);
+    }
+
+    private void cancelBossTimeout(UUID entityId) {
+        if (entityId == null) {
+            return;
+        }
+        BukkitTask task = this.timeoutTasks.remove(entityId);
+        if (task != null) {
+            task.cancel();
+        }
+    }
+
+    private void cleanupBossRuntime(String mobType, UUID entityId, boolean clearDamageSession) {
+        this.removeExistingHologram(mobType);
+        BukkitTask announcementTask = this.announcementTasks.remove(mobType);
+        if (announcementTask != null) {
+            announcementTask.cancel();
+        }
+        BukkitTask movementTask = this.movementCheckers.remove(mobType);
+        if (movementTask != null) {
+            movementTask.cancel();
+        }
+        this.cancelBossTimeout(entityId);
+        if (this.plugin.getBedrockVisualManager() != null) {
+            if (entityId != null) {
+                this.plugin.getBedrockVisualManager().unregisterBoss(entityId);
+            } else {
+                this.plugin.getBedrockVisualManager().unregisterBossByMobType(mobType);
+            }
+        }
+        UUID trackedId = this.spawnedEntityIds.get(mobType);
+        if (entityId == null || entityId.equals(trackedId)) {
+            this.spawnedStatus.put(mobType, false);
+            this.spawnedEntityIds.remove(mobType);
+        }
+        if (clearDamageSession && entityId != null && this.plugin.getDamageTracker() != null) {
+            this.plugin.getDamageTracker().clearBossSession(entityId);
+        }
     }
 
     private boolean isValidLocation(Location location) {
@@ -443,6 +575,9 @@ public class SpawnManager {
                 && Double.isFinite(location.getZ())
                 && Float.isFinite(location.getYaw())
                 && Float.isFinite(location.getPitch());
+    }
+
+    public record KillAllResult(int matched, int killed, int failed, boolean worldMissing) {
     }
 }
 

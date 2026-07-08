@@ -17,7 +17,7 @@ softdepend:
 commands:
   twiboss:
     description: Main command for TwiBosses
-    usage: /twiboss <reload|toggle|spawn|setspawn|deletespawn|help>
+    usage: /twiboss <reload|toggle|spawn|setspawn|deletespawn|killall|help>
     aliases: [ tboss, twibosses ]
 permissions:
   twibosses.reload:
@@ -34,6 +34,9 @@ permissions:
     default: op
   twibosses.deletespawn:
     description: Allows deleting the spawn location of tracked mobs
+    default: op
+  twibosses.killall:
+    description: Allows killing tracked bosses by mob type and world filters
     default: op
   twibosses.update:
     description: Allows receiving update notifications on join

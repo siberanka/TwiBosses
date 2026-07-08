@@ -15,10 +15,13 @@ commands:
   setspawn-success: "&aSpawn yeri təyin edildi: &f{mobtype}"
   deletespawn-success: "&aSpawn yeri silindi: &f{mobtype}"
   deletespawn-failed: "&cSpawn yeri silinə bilmədi: &f{mobtype}"
+  killall-success: "&aKillall tamamlandı. Uyğun: &f{matched}&a, öldürülən: &f{killed}&a, uğursuz: &f{failed}&a."
+  killall-world-missing: "&cDünya tapılmadı: &f{world}"
   usage:
     spawn: "&eİstifadə: /twiboss spawn <mobtype>"
     setspawn: "&eİstifadə: /twiboss setspawn <mobtype>"
     deletespawn: "&eİstifadə: /twiboss deletespawn <mobtype>"
+    killall: "&eİstifadə: /twiboss killall [mobtype] [-w dünya]"
   help:
     - "&b---- TwiBosses Əmrləri ----"
     - "&e/twiboss reload &7- Config və dil fayllarını yeniləyir"
@@ -26,6 +29,7 @@ commands:
     - "&e/twiboss spawn <mobtype> &7- Olduğun yerdə boss spawn edir"
     - "&e/twiboss setspawn <mobtype> &7- Boss spawn yerini təyin edir"
     - "&e/twiboss deletespawn <mobtype> &7- Boss spawn yerini silir"
+    - "&e/twiboss killall [mobtype] [-w dünya] &7- İzlənən bossları öldürür"
     - "&e/twiboss help &7- Yardım menyusunu göstərir"
 
 display:
@@ -204,6 +208,9 @@ logs:
   saved-respawn-timer: "{mobtype} üçün saxlanmış respawn vaxtı var: {seconds}s qalıb."
   kill-requirement-skip: "{mobtype} kill şərti istədiyi üçün auto-spawn atlandı."
   scheduled-spawn: "{mobtype} üçün planlı spawn başladı: {time}"
+  boss-timeout-removed: "{mobtype} vaxt limitinə çatdı və {world} dünyasından silindi."
+  boss-timeout-remove-failed: "Vaxt limitinə çatan {mobtype} silinə bilmədi: {error}"
+  killall-failed: "Killall zamanı {mobtype} öldürülə bilmədi."
   spawn-delete-failed: "{mobtype} spawn yeri silinə bilmədi: {error}"
   invalid-spawn-sound: "Config içində keçərsiz spawn səsi: {sound}"
   mythicmob-killed: "MythicMob öldü: {mobtype}"

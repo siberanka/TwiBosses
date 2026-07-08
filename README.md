@@ -14,6 +14,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 - Reward command validation with allowlists, blocked fragments, command length limits, and player name checks
 - Manual spawn cooldowns and command rate limits
 - Respawn timers with persistent `data.yml` storage
+- Admin killall tools and optional boss timeout removal
 - Optional PlaceholderAPI, FancyHolograms, and DecentHolograms integrations
 - Optional Discord webhook notifications with strict URL validation and payload limits
 - GitHub Releases based update checks
@@ -32,7 +33,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 ## Installation
 
-1. Download `TwiBosses-1.0.4.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.5.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml` and `plugins/TwiBosses/languages/*.yml`.
@@ -48,6 +49,10 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 | `/twiboss spawn <mobtype>` | `twibosses.spawn` | Spawns a tracked boss at your location. |
 | `/twiboss setspawn <mobtype>` | `twibosses.setspawn` | Saves the current location as a boss spawn point. |
 | `/twiboss deletespawn <mobtype>` | `twibosses.deletespawn` | Deletes a saved boss spawn point. |
+| `/twiboss killall` | `twibosses.killall` | Kills all active tracked bosses. |
+| `/twiboss killall <mobtype>` | `twibosses.killall` | Kills all active tracked bosses of one mob type. |
+| `/twiboss killall -w <world>` | `twibosses.killall` | Kills all active tracked bosses in one world. |
+| `/twiboss killall <mobtype> -w <world>` | `twibosses.killall` | Kills active tracked bosses matching both filters. |
 
 ## Permissions
 
@@ -58,6 +63,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 | `twibosses.spawn` | `op` | Allows manual boss spawning. |
 | `twibosses.setspawn` | `op` | Allows saving boss spawn points. |
 | `twibosses.deletespawn` | `op` | Allows deleting boss spawn points. |
+| `twibosses.killall` | `op` | Allows killing active tracked bosses. |
 | `twibosses.update` | `op` | Shows update notifications on join. |
 
 ## Configuration
@@ -75,6 +81,7 @@ Rank rewards can use the legacy command list format or the structured format bel
 ```yaml
 tracked-mobs:
   EliteSkeleton:
+    timeout-seconds: -1
     rewards:
       top-1:
         min-damage: 0
@@ -93,6 +100,8 @@ tracked-mobs:
             pickup-delay-ticks: 20
             glow: false
 ```
+
+`timeout-seconds` removes a live boss automatically if it is not killed in time. The default `-1` disables timeout removal. Timeout removal cleans runtime state and starts the normal respawn timer when respawn is enabled, but it does not run death rewards.
 
 Supported drop providers:
 
@@ -220,6 +229,8 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Player names are validated before command dispatch.
 - Boss death processing is guarded against duplicate death events.
 - Damage tracking is keyed by entity UUID to avoid same-type boss desync.
+- Killall and timeout logic only target configured tracked MythicMobs.
+- Timeout removal clears boss sessions without executing reward logic.
 - Manual commands and manual boss spawns are rate-limited.
 - Webhook URLs must be HTTPS Discord webhook URLs.
 - Webhook payloads are length-limited and sanitized.
@@ -235,7 +246,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.4.jar
+target/TwiBosses-1.0.5.jar
 ```
 
 ## Support

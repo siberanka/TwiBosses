@@ -15,10 +15,13 @@ commands:
   setspawn-success: "&aPunto de aparición definido para &f{mobtype}"
   deletespawn-success: "&aPunto de aparición eliminado para &f{mobtype}"
   deletespawn-failed: "&cNo se pudo eliminar el punto de aparición para &f{mobtype}"
+  killall-success: "&aKillall completado. Coinciden: &f{matched}&a, eliminados: &f{killed}&a, fallidos: &f{failed}&a."
+  killall-world-missing: "&cMundo no encontrado: &f{world}"
   usage:
     spawn: "&eUso: /twiboss spawn <mobtype>"
     setspawn: "&eUso: /twiboss setspawn <mobtype>"
     deletespawn: "&eUso: /twiboss deletespawn <mobtype>"
+    killall: "&eUso: /twiboss killall [mobtype] [-w mundo]"
   help:
     - "&b---- Comandos de TwiBosses ----"
     - "&e/twiboss reload &7- Recarga config e idiomas"
@@ -26,6 +29,7 @@ commands:
     - "&e/twiboss spawn <mobtype> &7- Invoca un boss en tu ubicación"
     - "&e/twiboss setspawn <mobtype> &7- Define el punto de aparición"
     - "&e/twiboss deletespawn <mobtype> &7- Elimina el punto de aparición"
+    - "&e/twiboss killall [mobtype] [-w mundo] &7- Mata bosses rastreados"
     - "&e/twiboss help &7- Muestra este menú"
 
 display:
@@ -204,6 +208,9 @@ logs:
   saved-respawn-timer: "{mobtype} tiene un temporizador de respawn guardado: quedan {seconds}s."
   kill-requirement-skip: "{mobtype} requiere kills para aparecer; auto-spawn omitido."
   scheduled-spawn: "Aparición programada activada para {mobtype} a las {time}."
+  boss-timeout-removed: "El boss {mobtype} agotó su tiempo y fue eliminado en el mundo {world}."
+  boss-timeout-remove-failed: "No se pudo eliminar el boss {mobtype} agotado por tiempo: {error}"
+  killall-failed: "No se pudo matar el boss {mobtype} durante killall."
   spawn-delete-failed: "No se pudo eliminar la ubicación de aparición para {mobtype}: {error}"
   invalid-spawn-sound: "Sonido de aparición inválido en config: {sound}"
   mythicmob-killed: "MythicMob eliminado: {mobtype}"

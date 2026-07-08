@@ -100,6 +100,8 @@ implements Listener {
         this.entityMobTypes.remove(entityId);
         if (damageMap == null) {
             this.rebuildMobAggregate(mobType);
+            this.announcedThresholds.remove(entityId);
+            this.plugin.getSpawnManager().handleMobDeath(mobType, event.getEntity().getLocation(), entityId);
             return;
         }
         HashMap<UUID, Double> qualifiedDamage = new HashMap<UUID, Double>();
@@ -127,7 +129,17 @@ implements Listener {
         this.announcedThresholds.remove(entityId);
         this.plugin.getRewardManager().handleMobDeath(mobType, qualifiedDamage, event.getEntity().getLocation(), lasthitPlayer);
         this.rebuildMobAggregate(mobType);
-        this.plugin.getSpawnManager().handleMobDeath(mobType, event.getEntity().getLocation());
+        this.plugin.getSpawnManager().handleMobDeath(mobType, event.getEntity().getLocation(), entityId);
+    }
+
+    public void clearBossSession(UUID entityId) {
+        String mobType = this.entityMobTypes.remove(entityId);
+        this.entityDamageMap.remove(entityId);
+        this.announcedThresholds.remove(entityId);
+        this.processedDeaths.remove(entityId);
+        if (mobType != null) {
+            this.rebuildMobAggregate(mobType);
+        }
     }
 
     @EventHandler
@@ -138,6 +150,7 @@ implements Listener {
             this.entityMobTypes.put(entityId, mobType);
             this.entityDamageMap.put(entityId, new HashMap());
             this.rebuildMobAggregate(mobType);
+            this.plugin.getSpawnManager().trackSpawnedBoss(mobType, entityId);
             this.announcedThresholds.put(event.getEntity().getUniqueId(), new HashSet());
             this.lastTopDamage.remove(mobType);
             if (this.plugin.getBedrockVisualManager() != null) {

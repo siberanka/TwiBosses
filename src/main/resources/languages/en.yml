@@ -15,10 +15,13 @@ commands:
   setspawn-success: "&aSpawn location set for &f{mobtype}"
   deletespawn-success: "&aSpawn location deleted for &f{mobtype}"
   deletespawn-failed: "&cFailed to delete spawn location for &f{mobtype}"
+  killall-success: "&aKillall completed. Matched: &f{matched}&a, killed: &f{killed}&a, failed: &f{failed}&a."
+  killall-world-missing: "&cWorld not found: &f{world}"
   usage:
     spawn: "&eUsage: /twiboss spawn <mobtype>"
     setspawn: "&eUsage: /twiboss setspawn <mobtype>"
     deletespawn: "&eUsage: /twiboss deletespawn <mobtype>"
+    killall: "&eUsage: /twiboss killall [mobtype] [-w world]"
   help:
     - "&b---- TwiBosses Commands ----"
     - "&e/twiboss reload &7- Reload config and language files"
@@ -26,6 +29,7 @@ commands:
     - "&e/twiboss spawn <mobtype> &7- Spawn a boss at your location"
     - "&e/twiboss setspawn <mobtype> &7- Set a boss spawn location"
     - "&e/twiboss deletespawn <mobtype> &7- Delete a boss spawn location"
+    - "&e/twiboss killall [mobtype] [-w world] &7- Kill tracked bosses"
     - "&e/twiboss help &7- Show this help menu"
 
 display:
@@ -204,6 +208,9 @@ logs:
   saved-respawn-timer: "{mobtype} has a saved respawn timer: {seconds}s remaining."
   kill-requirement-skip: "{mobtype} requires kills to spawn, skipping auto-spawn."
   scheduled-spawn: "Scheduled spawn triggered for {mobtype} at {time}."
+  boss-timeout-removed: "Boss {mobtype} timed out and was removed in world {world}."
+  boss-timeout-remove-failed: "Failed to remove timed out boss {mobtype}: {error}"
+  killall-failed: "Failed to kill boss {mobtype} during killall."
   spawn-delete-failed: "Could not delete spawn location for {mobtype}: {error}"
   invalid-spawn-sound: "Invalid spawn sound type in config: {sound}"
   mythicmob-killed: "MythicMob killed: {mobtype}"

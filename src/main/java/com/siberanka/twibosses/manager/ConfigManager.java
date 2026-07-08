@@ -297,6 +297,14 @@ public class ConfigManager {
         return this.config.getInt("tracked-mobs." + mobType + ".respawn.time", 300);
     }
 
+    public int getMobTimeoutSeconds(String mobType) {
+        int value = this.config.getInt("tracked-mobs." + mobType + ".timeout-seconds", -1);
+        if (value < 0) {
+            return -1;
+        }
+        return Math.max(1, Math.min(604_800, value));
+    }
+
     public Map<Integer, List<String>> getAllMobRewards(String mobType) {
         HashMap<Integer, List<String>> rewards = new HashMap<Integer, List<String>>();
         String path = "tracked-mobs." + mobType + ".rewards";
@@ -774,6 +782,7 @@ public class ConfigManager {
         }
         if (Set.of(
                 "respawn", "respawn.enabled", "respawn.time",
+                "timeout-seconds",
                 "spawn-time", "spawn-time.enable", "spawn-time.time",
                 "rewards", "participation-reward", "participation-reward.enabled", "participation-reward.min-damage", "participation-reward.commands",
                 "lasthit-reward", "lasthit-reward.enabled", "lasthit-reward.min-damage", "lasthit-reward.commands",

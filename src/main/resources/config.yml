@@ -137,6 +137,9 @@ tracked-mobs:
         chestplate: AIR
         leggings: AIR
         boots: AIR
+    # Seconds before this boss is removed automatically if it is not killed.
+    # -1 disables timeout removal.
+    timeout-seconds: -1
     respawn:
       enabled: true
       time: 300
@@ -254,6 +257,7 @@ tracked-mobs:
         chestplate: AIR
         leggings: AIR
         boots: AIR
+    timeout-seconds: -1
     respawn:
       enabled: true
       time: 300
