@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
+import org.bukkit.EntityEffect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -32,6 +33,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.EntityEquipment;
@@ -78,14 +80,14 @@ public final class BedrockVisualManager implements Listener {
         }
         VisualSession session = this.sessionsByOriginal.remove(entity.getUniqueId());
         if (session != null) {
-            this.destroySession(session);
+            this.destroySession(session, false);
         }
     }
 
     public void unregisterBossByMobType(String mobType) {
         for (VisualSession session : new ArrayList<>(this.sessionsByOriginal.values())) {
             if (session.mobType().equals(mobType)) {
-                this.destroySession(session);
+                this.destroySession(session, false);
             }
         }
     }
@@ -114,7 +116,7 @@ public final class BedrockVisualManager implements Listener {
             this.cleanupTask = null;
         }
         for (VisualSession session : new ArrayList<>(this.sessionsByOriginal.values())) {
-            this.destroySession(session);
+            this.destroySession(session, false);
         }
         this.sessionsByOriginal.clear();
         this.sessionsByProxy.clear();
@@ -157,12 +159,30 @@ public final class BedrockVisualManager implements Listener {
         });
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onOriginalDamage(EntityDamageEvent event) {
+        VisualSession session = this.sessionsByOriginal.get(event.getEntity().getUniqueId());
+        if (session == null || event.getFinalDamage() <= 0.0) {
+            return;
+        }
+        LivingEntity proxy = session.proxy();
+        if (!this.isValidLiving(proxy) || proxy.isDead()) {
+            return;
+        }
+        proxy.playEffect(EntityEffect.HURT);
+        this.plugin.getServer().getScheduler().runTask((Plugin)this.plugin, () -> this.syncProxyHealth(session));
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDeath(EntityDeathEvent event) {
-        this.unregisterBoss(event.getEntity());
+        VisualSession originalSession = this.sessionsByOriginal.get(event.getEntity().getUniqueId());
+        if (originalSession != null) {
+            this.destroySession(originalSession, true);
+            return;
+        }
         VisualSession session = this.sessionsByProxy.get(event.getEntity().getUniqueId());
         if (session != null) {
-            this.destroySession(session);
+            this.destroySession(session, false);
         }
     }
 
@@ -223,6 +243,7 @@ public final class BedrockVisualManager implements Listener {
                 }
                 proxy.teleport(originalLocation);
                 proxy.setFireTicks(original.getFireTicks());
+                BedrockVisualManager.this.syncProxyHealth(original, proxy);
                 if (proxy.getMaximumNoDamageTicks() != original.getMaximumNoDamageTicks()) {
                     proxy.setMaximumNoDamageTicks(original.getMaximumNoDamageTicks());
                 }
@@ -402,17 +423,21 @@ public final class BedrockVisualManager implements Listener {
     }
 
     private void destroySession(VisualSession session) {
+        this.destroySession(session, false);
+    }
+
+    private void destroySession(VisualSession session, boolean deathAnimation) {
         this.sessionsByOriginal.remove(session.original().getUniqueId());
         this.sessionsByProxy.remove(session.proxy().getUniqueId());
         if (session.syncTask() != null) {
             session.syncTask().cancel();
         }
         Entity proxy = session.proxy();
-        if (proxy.isValid()) {
-            proxy.remove();
-        }
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.showEntity((Plugin)this.plugin, session.original());
+            if (!this.isFloodgatePlayer(player)) {
+                player.hideEntity((Plugin)this.plugin, proxy);
+            }
             for (UUID modelPartId : session.modelPartIds()) {
                 Entity modelPart = Bukkit.getEntity(modelPartId);
                 if (modelPart != null) {
@@ -420,6 +445,19 @@ public final class BedrockVisualManager implements Listener {
                 }
             }
         }
+        if (!proxy.isValid()) {
+            return;
+        }
+        if (deathAnimation && proxy instanceof LivingEntity livingProxy && !livingProxy.isDead()) {
+            livingProxy.playEffect(EntityEffect.DEATH);
+            this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+                if (proxy.isValid()) {
+                    proxy.remove();
+                }
+            }, 20L);
+            return;
+        }
+        proxy.remove();
     }
 
     private void startCleanupTask() {
@@ -455,6 +493,24 @@ public final class BedrockVisualManager implements Listener {
 
     private boolean isValidLiving(Entity entity) {
         return entity instanceof LivingEntity && entity.isValid() && entity.getWorld() != null;
+    }
+
+    private void syncProxyHealth(VisualSession session) {
+        this.syncProxyHealth(session.original(), session.proxy());
+    }
+
+    private void syncProxyHealth(LivingEntity original, LivingEntity proxy) {
+        if (!this.isValidLiving(original) || !this.isValidLiving(proxy) || original.isDead() || proxy.isDead()) {
+            return;
+        }
+        double originalMax = Math.max(1.0, original.getMaxHealth());
+        double proxyMax = Math.max(1.0, proxy.getMaxHealth());
+        double ratio = Math.max(0.0, Math.min(1.0, original.getHealth() / originalMax));
+        double proxyHealth = Math.max(0.1, Math.min(proxyMax, proxyMax * ratio));
+        try {
+            proxy.setHealth(proxyHealth);
+        } catch (IllegalArgumentException ignored) {
+        }
     }
 
     private boolean hasFloodgate() {

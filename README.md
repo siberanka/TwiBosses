@@ -32,7 +32,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 ## Installation
 
-1. Download `TwiBosses-1.0.3.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.4.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml` and `plugins/TwiBosses/languages/*.yml`.
@@ -145,6 +145,8 @@ security:
 
 Equipment slots support vanilla items and the same custom item providers used by reward drops: `VANILLA`, `MYTHICMOBS`, `ITEMSADDER`, `NEXO`, and `CRAFTENGINE`.
 
+The Bedrock proxy syncs position, yaw, pitch, fire state, configured equipment, visible health ratio, hurt animation, and death animation from the real boss session. Java players never receive the proxy view.
+
 All editable text is stored in:
 
 ```text
@@ -233,7 +235,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.3.jar
+target/TwiBosses-1.0.4.jar
 ```
 
 ## Support
