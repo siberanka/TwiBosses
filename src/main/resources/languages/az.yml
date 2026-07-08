@@ -188,6 +188,8 @@ logs:
   hologram-disabled: "Hologramlar deaktivdir."
   configuration-repaired: "Konfiqurasiya təmir edildi: əskik varsayılanlar əlavə edildi və keçərsiz girişlər silindi."
   configuration-repair-failed: "Konfiqurasiya təmir edilə bilmədi: {error}"
+  bosses-configuration-repaired: "Boss konfiqurasiyası təmir edildi: əskik varsayılanlar əlavə edildi və keçərsiz girişlər silindi."
+  bosses-configuration-repair-failed: "Boss konfiqurasiyası təmir edilə bilmədi: {error}"
   command-missing: "plugin.yml içində 'twiboss' əmri tapılmadı."
   skipped-unsafe-lasthit-player: "Təhlükəsiz olmayan oyunçu adı səbəbi ilə son vuruş mükafatı atlandı: {player}"
   lasthit-command-limit: "Son vuruş mükafat əmri limiti aşıldı; artıq əmrlər atlandı."

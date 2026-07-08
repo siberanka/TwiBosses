@@ -188,6 +188,8 @@ logs:
   hologram-disabled: "Holograms are disabled."
   configuration-repaired: "Configuration repaired: missing defaults were added and invalid entries were removed."
   configuration-repair-failed: "Failed to repair configuration: {error}"
+  bosses-configuration-repaired: "Boss configuration repaired: missing defaults were added and invalid entries were removed."
+  bosses-configuration-repair-failed: "Failed to repair boss configuration: {error}"
   command-missing: "Command 'twiboss' was not found in plugin.yml."
   skipped-unsafe-lasthit-player: "Skipped lasthit reward for unsafe player name: {player}"
   lasthit-command-limit: "Lasthit reward command list exceeded the max size; extra commands were skipped."

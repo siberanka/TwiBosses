@@ -35,7 +35,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -51,6 +53,7 @@ public final class BedrockVisualManager implements Listener {
     private final Map<UUID, VisualSession> sessionsByOriginal = new HashMap<>();
     private final Map<UUID, VisualSession> sessionsByProxy = new HashMap<>();
     private final Map<UUID, Deque<Long>> proxyHitWindows = new HashMap<>();
+    private final Map<UUID, BukkitTask> pendingSessionTasks = new HashMap<>();
     private BukkitTask cleanupTask;
     private boolean floodgateUnavailableLogged;
 
@@ -70,8 +73,12 @@ public final class BedrockVisualManager implements Listener {
             this.logFloodgateMissingOnce();
             return;
         }
+        UUID entityId = livingEntity.getUniqueId();
+        if (this.sessionsByOriginal.containsKey(entityId) || this.pendingSessionTasks.containsKey(entityId)) {
+            return;
+        }
         long delay = this.plugin.getConfigManager().getBedrockVisualSpawnDelayTicks(mobType);
-        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> this.createSession(mobType, livingEntity), delay);
+        this.scheduleSessionCreate(mobType, livingEntity, delay, 0);
     }
 
     public void unregisterBoss(Entity entity) {
@@ -88,6 +95,10 @@ public final class BedrockVisualManager implements Listener {
         VisualSession session = this.sessionsByOriginal.remove(entityId);
         if (session != null) {
             this.destroySession(session, false);
+        }
+        BukkitTask pendingTask = this.pendingSessionTasks.remove(entityId);
+        if (pendingTask != null) {
+            pendingTask.cancel();
         }
     }
 
@@ -108,6 +119,16 @@ public final class BedrockVisualManager implements Listener {
             this.cleanup();
             return;
         }
+        for (VisualSession session : new ArrayList<>(this.sessionsByOriginal.values())) {
+            this.destroySession(session, false);
+        }
+        for (BukkitTask pendingTask : this.pendingSessionTasks.values()) {
+            pendingTask.cancel();
+        }
+        this.sessionsByOriginal.clear();
+        this.sessionsByProxy.clear();
+        this.pendingSessionTasks.clear();
+        this.proxyHitWindows.clear();
         if (this.cleanupTask == null) {
             this.startCleanupTask();
         }
@@ -125,14 +146,28 @@ public final class BedrockVisualManager implements Listener {
         for (VisualSession session : new ArrayList<>(this.sessionsByOriginal.values())) {
             this.destroySession(session, false);
         }
+        for (BukkitTask pendingTask : this.pendingSessionTasks.values()) {
+            pendingTask.cancel();
+        }
         this.sessionsByOriginal.clear();
         this.sessionsByProxy.clear();
         this.proxyHitWindows.clear();
+        this.pendingSessionTasks.clear();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
         this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> this.applyVisibility(event.getPlayer()), 20L);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerTeleport(PlayerTeleportEvent event) {
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> this.applyVisibility(event.getPlayer()), 2L);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> this.applyVisibility(event.getPlayer()), 2L);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -193,7 +228,15 @@ public final class BedrockVisualManager implements Listener {
         }
     }
 
-    private void createSession(String mobType, LivingEntity original) {
+    private void scheduleSessionCreate(String mobType, LivingEntity original, long delay, int attempt) {
+        BukkitTask task = this.plugin.getServer().getScheduler().runTaskLater((Plugin)this.plugin, () -> {
+            this.pendingSessionTasks.remove(original.getUniqueId());
+            this.createSession(mobType, original, attempt);
+        }, Math.max(1L, delay));
+        this.pendingSessionTasks.put(original.getUniqueId(), task);
+    }
+
+    private void createSession(String mobType, LivingEntity original, int attempt) {
         if (!this.isValidLiving(original)
                 || original.isDead()
                 || this.sessionsByOriginal.containsKey(original.getUniqueId())
@@ -202,6 +245,7 @@ public final class BedrockVisualManager implements Listener {
             return;
         }
         if (this.plugin.getConfigManager().shouldOnlyUseBedrockVisualWhenModeled(mobType) && !this.isModeledBoss(original, mobType)) {
+            this.retrySessionCreateIfNeeded(mobType, original, attempt);
             return;
         }
         EntityType proxyType = this.plugin.getConfigManager().getBedrockVisualEntityType(mobType);
@@ -231,9 +275,20 @@ public final class BedrockVisualManager implements Listener {
                 LanguageManager.placeholders("mobtype", mobType, "entity", proxyType.name())));
     }
 
+    private void retrySessionCreateIfNeeded(String mobType, LivingEntity original, int attempt) {
+        int maxRetries = this.plugin.getConfigManager().getBedrockVisualModelDetectionRetries();
+        if (attempt >= maxRetries || !this.isValidLiving(original) || original.isDead()) {
+            return;
+        }
+        this.scheduleSessionCreate(mobType, original, this.plugin.getConfigManager().getBedrockVisualModelDetectionRetryIntervalTicks(), attempt + 1);
+    }
+
     private BukkitTask syncTask(String mobType, LivingEntity original, LivingEntity proxy) {
         int interval = this.plugin.getConfigManager().getBedrockVisualSyncIntervalTicks(mobType);
         return new BukkitRunnable() {
+            private final int visibilityRefreshRuns = Math.max(1, (int)Math.ceil((double)BedrockVisualManager.this.plugin.getConfigManager().getBedrockVisualVisibilityRefreshIntervalTicks() / (double)interval));
+            private int visibilityRefreshCounter;
+
             @Override
             public void run() {
                 if (!BedrockVisualManager.this.isValidLiving(original) || original.isDead()
@@ -253,6 +308,13 @@ public final class BedrockVisualManager implements Listener {
                 BedrockVisualManager.this.syncProxyHealth(original, proxy);
                 if (proxy.getMaximumNoDamageTicks() != original.getMaximumNoDamageTicks()) {
                     proxy.setMaximumNoDamageTicks(original.getMaximumNoDamageTicks());
+                }
+                if (++this.visibilityRefreshCounter >= this.visibilityRefreshRuns) {
+                    this.visibilityRefreshCounter = 0;
+                    VisualSession session = BedrockVisualManager.this.sessionsByOriginal.get(original.getUniqueId());
+                    if (session != null) {
+                        BedrockVisualManager.this.applyVisibilityForSession(session);
+                    }
                 }
             }
         }.runTaskTimer((Plugin)this.plugin, interval, interval);
@@ -277,6 +339,10 @@ public final class BedrockVisualManager implements Listener {
         if (equipment == null) {
             return;
         }
+        this.clearEquipment(equipment);
+        if (!this.plugin.getConfigManager().isBedrockVisualEquipmentEnabled(mobType)) {
+            return;
+        }
         equipment.setItemInMainHand(this.resolveEquipmentItem(mobType, "main-hand"));
         equipment.setItemInOffHand(this.resolveEquipmentItem(mobType, "off-hand"));
         equipment.setHelmet(this.resolveEquipmentItem(mobType, "helmet"));
@@ -289,6 +355,15 @@ public final class BedrockVisualManager implements Listener {
         equipment.setChestplateDropChance(0.0F);
         equipment.setLeggingsDropChance(0.0F);
         equipment.setBootsDropChance(0.0F);
+    }
+
+    private void clearEquipment(EntityEquipment equipment) {
+        equipment.setItemInMainHand(new ItemStack(Material.AIR));
+        equipment.setItemInOffHand(new ItemStack(Material.AIR));
+        equipment.setHelmet(new ItemStack(Material.AIR));
+        equipment.setChestplate(new ItemStack(Material.AIR));
+        equipment.setLeggings(new ItemStack(Material.AIR));
+        equipment.setBoots(new ItemStack(Material.AIR));
     }
 
     private ItemStack resolveEquipmentItem(String mobType, String slot) {
@@ -309,9 +384,21 @@ public final class BedrockVisualManager implements Listener {
     }
 
     private void applyVisibilityForSession(VisualSession session) {
+        int processed = 0;
+        int limit = this.plugin.getConfigManager().getMaxBedrockVisualViewersPerRefresh();
+        double radius = this.plugin.getConfigManager().getBedrockVisualVisibilityRefreshRadius();
+        double radiusSquared = radius * radius;
         for (Player player : Bukkit.getOnlinePlayers()) {
+            if (processed >= limit) {
+                break;
+            }
+            if (!this.shouldRefreshVisibilityFor(player, session, radiusSquared)) {
+                continue;
+            }
             this.applyVisibility(player, session);
+            processed++;
         }
+        this.pruneModelPartIds(session);
     }
 
     private void applyVisibility(Player player) {
@@ -322,6 +409,9 @@ public final class BedrockVisualManager implements Listener {
 
     private void applyVisibility(Player player, VisualSession session) {
         if (player == null || !player.isOnline()) {
+            return;
+        }
+        if (!this.isValidLiving(session.original()) || !this.isValidLiving(session.proxy())) {
             return;
         }
         if (this.isFloodgatePlayer(player)) {
@@ -338,6 +428,31 @@ public final class BedrockVisualManager implements Listener {
         }
         player.showEntity((Plugin)this.plugin, session.original());
         player.hideEntity((Plugin)this.plugin, session.proxy());
+        for (UUID modelPartId : session.modelPartIds()) {
+            Entity modelPart = Bukkit.getEntity(modelPartId);
+            if (modelPart != null) {
+                player.showEntity((Plugin)this.plugin, modelPart);
+            }
+        }
+    }
+
+    private boolean shouldRefreshVisibilityFor(Player player, VisualSession session, double radiusSquared) {
+        if (player == null || !player.isOnline() || !this.isValidLiving(session.original())) {
+            return false;
+        }
+        Location playerLocation = player.getLocation();
+        Location bossLocation = session.original().getLocation();
+        if (playerLocation.getWorld() == null || bossLocation.getWorld() == null || !playerLocation.getWorld().equals(bossLocation.getWorld())) {
+            return false;
+        }
+        return playerLocation.distanceSquared(bossLocation) <= radiusSquared;
+    }
+
+    private void pruneModelPartIds(VisualSession session) {
+        session.modelPartIds().removeIf(id -> {
+            Entity entity = Bukkit.getEntity(id);
+            return entity == null || !entity.isValid();
+        });
     }
 
     private boolean isModeledBoss(LivingEntity original, String mobType) {

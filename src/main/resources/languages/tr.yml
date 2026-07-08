@@ -188,6 +188,8 @@ logs:
   hologram-disabled: "Hologramlar devre dışı."
   configuration-repaired: "Yapılandırma onarıldı: eksik varsayılanlar eklendi ve geçersiz girdiler kaldırıldı."
   configuration-repair-failed: "Yapılandırma onarılamadı: {error}"
+  bosses-configuration-repaired: "Boss yapılandırması onarıldı: eksik varsayılanlar eklendi ve geçersiz girdiler kaldırıldı."
+  bosses-configuration-repair-failed: "Boss yapılandırması onarılamadı: {error}"
   command-missing: "plugin.yml içinde 'twiboss' komutu bulunamadı."
   skipped-unsafe-lasthit-player: "Güvensiz oyuncu adı nedeniyle son vuruş ödülü atlandı: {player}"
   lasthit-command-limit: "Son vuruş ödül komutu limiti aşıldı; fazla komutlar atlandı."

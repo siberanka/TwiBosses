@@ -188,6 +188,8 @@ logs:
   hologram-disabled: "Los hologramas están desactivados."
   configuration-repaired: "Configuración reparada: se añadieron valores faltantes y se eliminaron entradas inválidas."
   configuration-repair-failed: "No se pudo reparar la configuración: {error}"
+  bosses-configuration-repaired: "Configuración de bosses reparada: se añadieron valores faltantes y se eliminaron entradas inválidas."
+  bosses-configuration-repair-failed: "No se pudo reparar la configuración de bosses: {error}"
   command-missing: "El comando 'twiboss' no se encontró en plugin.yml."
   skipped-unsafe-lasthit-player: "Recompensa de último golpe omitida por nombre de jugador inseguro: {player}"
   lasthit-command-limit: "La lista de comandos de último golpe superó el límite; los comandos extra fueron omitidos."

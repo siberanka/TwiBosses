@@ -32,12 +32,15 @@ public class ConfigManager {
 
     private final TwiBosses plugin;
     private FileConfiguration config;
+    private FileConfiguration bossesConfig;
 
     public ConfigManager(TwiBosses plugin) {
         this.plugin = plugin;
         this.repairConfigFile();
+        this.repairBossesFile();
         plugin.reloadConfig();
         this.config = plugin.getConfig();
+        this.bossesConfig = YamlConfiguration.loadConfiguration(this.bossesFile());
     }
 
     private synchronized void repairConfigFile() {
@@ -54,6 +57,7 @@ public class ConfigManager {
             }
             YamlConfiguration diskConfig = YamlConfiguration.loadConfiguration(configFile);
             boolean updated = this.migrateLegacyConfig(diskConfig);
+            updated |= this.migrateTrackedMobsToBosses(diskConfig);
             List<String> existingKeys = new ArrayList<>(diskConfig.getKeys(true));
             existingKeys.sort((left, right) -> Integer.compare(depth(right), depth(left)));
             for (String key : existingKeys) {
@@ -95,10 +99,111 @@ public class ConfigManager {
         }
     }
 
+    private synchronized void repairBossesFile() {
+        try {
+            InputStream resourceStream = this.plugin.getResource("bosses.yml");
+            if (resourceStream == null) {
+                return;
+            }
+            YamlConfiguration defaultBosses = YamlConfiguration.loadConfiguration((Reader)new InputStreamReader(resourceStream, StandardCharsets.UTF_8));
+            File bossesFile = this.bossesFile();
+            if (!bossesFile.exists()) {
+                this.plugin.saveResource("bosses.yml", false);
+                return;
+            }
+            YamlConfiguration diskBosses = YamlConfiguration.loadConfiguration(bossesFile);
+            boolean updated = false;
+            List<String> existingKeys = new ArrayList<>(diskBosses.getKeys(true));
+            existingKeys.sort((left, right) -> Integer.compare(depth(right), depth(left)));
+            for (String key : existingKeys) {
+                if (this.isAllowedBossesPath(key, defaultBosses)) {
+                    continue;
+                }
+                diskBosses.set(key, null);
+                updated = true;
+            }
+            List<String> defaultKeys = new ArrayList<>(defaultBosses.getKeys(true));
+            defaultKeys.sort((left, right) -> Integer.compare(depth(left), depth(right)));
+            for (String key : defaultKeys) {
+                Object expected = defaultBosses.get(key);
+                if (this.isLegacyRewardListPath(key, diskBosses)) {
+                    continue;
+                }
+                if (expected instanceof ConfigurationSection) {
+                    if (!diskBosses.isConfigurationSection(key)) {
+                        diskBosses.set(key, null);
+                        diskBosses.createSection(key);
+                        updated = true;
+                    }
+                    continue;
+                }
+                if (!diskBosses.contains(key) || !sameKind(diskBosses.get(key), expected)) {
+                    diskBosses.set(key, expected);
+                    updated = true;
+                }
+            }
+            if (updated) {
+                this.backup(bossesFile, "bosses");
+                this.saveSafely(diskBosses, bossesFile);
+                this.logInfo("logs.bosses-configuration-repaired");
+            }
+        } catch (Exception e) {
+            this.logWarning("logs.bosses-configuration-repair-failed", Map.of("error", e.getMessage()));
+            this.plugin.logError("logs.bosses-configuration-repair-failed", e);
+        }
+    }
+
+    private boolean migrateTrackedMobsToBosses(YamlConfiguration config) throws IOException {
+        if (!config.contains("tracked-mobs")) {
+            return false;
+        }
+        File bossesFile = this.bossesFile();
+        boolean existed = bossesFile.exists();
+        YamlConfiguration bosses = YamlConfiguration.loadConfiguration(bossesFile);
+        ConfigurationSection sourceBosses = config.getConfigurationSection("tracked-mobs");
+        boolean bossesUpdated = false;
+        if (sourceBosses != null) {
+            ConfigurationSection targetBosses = bosses.getConfigurationSection("tracked-mobs");
+            if (targetBosses == null) {
+                targetBosses = bosses.createSection("tracked-mobs");
+                bossesUpdated = true;
+            }
+            for (String mobType : sourceBosses.getKeys(false)) {
+                if (targetBosses.contains(mobType)) {
+                    continue;
+                }
+                ConfigurationSection mobSection = sourceBosses.getConfigurationSection(mobType);
+                if (mobSection != null) {
+                    targetBosses.createSection(mobType, this.sectionToMap(mobSection));
+                } else {
+                    targetBosses.set(mobType, sourceBosses.get(mobType));
+                }
+                bossesUpdated = true;
+            }
+        } else if (!bosses.contains("tracked-mobs")) {
+            bosses.set("tracked-mobs", config.get("tracked-mobs"));
+            bossesUpdated = true;
+        }
+        if (bossesUpdated) {
+            if (existed) {
+                this.backup(bossesFile, "bosses");
+            }
+            this.saveSafely(bosses, bossesFile);
+        }
+        config.set("tracked-mobs", null);
+        return true;
+    }
+
+    private File bossesFile() {
+        return new File(this.plugin.getDataFolder(), "bosses.yml");
+    }
+
     public void reloadConfig() {
         this.repairConfigFile();
+        this.repairBossesFile();
         this.plugin.reloadConfig();
         this.config = this.plugin.getConfig();
+        this.bossesConfig = YamlConfiguration.loadConfiguration(this.bossesFile());
     }
 
     public String getMessage(String path) {
@@ -269,7 +374,7 @@ public class ConfigManager {
     }
 
     public Set<String> getTrackedMobs() {
-        ConfigurationSection section = this.config.getConfigurationSection("tracked-mobs");
+        ConfigurationSection section = this.bossesConfig.getConfigurationSection("tracked-mobs");
         return section != null ? section.getKeys(false) : Set.of();
     }
 
@@ -288,18 +393,18 @@ public class ConfigManager {
     }
 
     public boolean isMobRespawnEnabled(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".respawn.enabled", true);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".respawn.enabled", true);
     }
 
     public int getMobRespawnTime(String mobType) {
         if (!this.isMobRespawnEnabled(mobType)) {
             return -1;
         }
-        return this.config.getInt("tracked-mobs." + mobType + ".respawn.time", 300);
+        return this.bossesConfig.getInt("tracked-mobs." + mobType + ".respawn.time", 300);
     }
 
     public int getMobTimeoutSeconds(String mobType) {
-        int value = this.config.getInt("tracked-mobs." + mobType + ".timeout-seconds", -1);
+        int value = this.bossesConfig.getInt("tracked-mobs." + mobType + ".timeout-seconds", -1);
         if (value < 0) {
             return -1;
         }
@@ -309,7 +414,7 @@ public class ConfigManager {
     public Map<Integer, List<String>> getAllMobRewards(String mobType) {
         HashMap<Integer, List<String>> rewards = new HashMap<Integer, List<String>>();
         String path = "tracked-mobs." + mobType + ".rewards";
-        ConfigurationSection section = this.config.getConfigurationSection(path);
+        ConfigurationSection section = this.bossesConfig.getConfigurationSection(path);
         if (section != null) {
             for (String key : section.getKeys(false)) {
                 if (!key.startsWith("top-")) continue;
@@ -330,7 +435,7 @@ public class ConfigManager {
     public Map<Integer, RewardBundle> getRankRewardBundles(String mobType) {
         HashMap<Integer, RewardBundle> rewards = new HashMap<>();
         String path = "tracked-mobs." + mobType + ".rewards";
-        ConfigurationSection section = this.config.getConfigurationSection(path);
+        ConfigurationSection section = this.bossesConfig.getConfigurationSection(path);
         if (section == null) {
             return rewards;
         }
@@ -352,15 +457,15 @@ public class ConfigManager {
     }
 
     public boolean isParticipationRewardEnabled(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".participation-reward.enabled", false);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".participation-reward.enabled", false);
     }
 
     public double getParticipationMinDamage(String mobType) {
-        return this.config.getDouble("tracked-mobs." + mobType + ".participation-reward.min-damage", 0.0);
+        return this.bossesConfig.getDouble("tracked-mobs." + mobType + ".participation-reward.min-damage", 0.0);
     }
 
     public List<String> getParticipationCommands(String mobType) {
-        return this.config.getStringList("tracked-mobs." + mobType + ".participation-reward.commands");
+        return this.bossesConfig.getStringList("tracked-mobs." + mobType + ".participation-reward.commands");
     }
 
     public RewardBundle getParticipationRewardBundle(String mobType) {
@@ -368,15 +473,15 @@ public class ConfigManager {
     }
 
     public boolean isLasthitRewardEnabled(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".lasthit-reward.enabled", false);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".lasthit-reward.enabled", false);
     }
 
     public double getLasthitMinDamage(String mobType) {
-        return this.config.getDouble("tracked-mobs." + mobType + ".lasthit-reward.min-damage", 0.0);
+        return this.bossesConfig.getDouble("tracked-mobs." + mobType + ".lasthit-reward.min-damage", 0.0);
     }
 
     public List<String> getLasthitCommands(String mobType) {
-        return this.config.getStringList("tracked-mobs." + mobType + ".lasthit-reward.commands");
+        return this.bossesConfig.getStringList("tracked-mobs." + mobType + ".lasthit-reward.commands");
     }
 
     public RewardBundle getLasthitRewardBundle(String mobType) {
@@ -384,16 +489,16 @@ public class ConfigManager {
     }
 
     public boolean isPermissionRewardsEnabled(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".permission-rewards.enabled", false);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".permission-rewards.enabled", false);
     }
 
     public boolean shouldStopAfterFirstPermissionReward(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".permission-rewards.stop-after-first-match", false);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".permission-rewards.stop-after-first-match", false);
     }
 
     public List<PermissionReward> getPermissionRewards(String mobType) {
         String path = "tracked-mobs." + mobType + ".permission-rewards.rewards";
-        ConfigurationSection section = this.config.getConfigurationSection(path);
+        ConfigurationSection section = this.bossesConfig.getConfigurationSection(path);
         if (section == null) {
             return Collections.emptyList();
         }
@@ -413,7 +518,7 @@ public class ConfigManager {
                 continue;
             }
             String rewardPath = path + "." + id;
-            String permission = this.config.getString(rewardPath + ".permission", "");
+            String permission = this.bossesConfig.getString(rewardPath + ".permission", "");
             if (!isSafePermissionNode(permission)) {
                 this.plugin.getLogger().warning(this.plugin.getLanguageManager().raw(
                         "logs.permission-reward-invalid",
@@ -615,11 +720,11 @@ public class ConfigManager {
     }
 
     public boolean isBedrockVisualEnabled(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.enabled", false);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.enabled", false);
     }
 
     public EntityType getBedrockVisualEntityType(String mobType) {
-        String configured = this.config.getString("tracked-mobs." + mobType + ".bedrock-visual.vanilla-entity", "ZOMBIE");
+        String configured = this.bossesConfig.getString("tracked-mobs." + mobType + ".bedrock-visual.vanilla-entity", "ZOMBIE");
         try {
             return EntityType.valueOf(configured == null ? "ZOMBIE" : configured.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
@@ -628,7 +733,7 @@ public class ConfigManager {
     }
 
     public String getBedrockVisualModelMode(String mobType) {
-        Object value = this.config.get("tracked-mobs." + mobType + ".bedrock-visual.modeled");
+        Object value = this.bossesConfig.get("tracked-mobs." + mobType + ".bedrock-visual.modeled");
         if (value instanceof Boolean bool) {
             return bool ? "true" : "false";
         }
@@ -641,48 +746,91 @@ public class ConfigManager {
     }
 
     public boolean shouldOnlyUseBedrockVisualWhenModeled(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.only-when-modeled", true);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.only-when-modeled", true);
     }
 
     public int getBedrockVisualSpawnDelayTicks(String mobType) {
-        return Math.max(1, Math.min(200, this.config.getInt("tracked-mobs." + mobType + ".bedrock-visual.spawn-delay-ticks", 10)));
+        return Math.max(1, Math.min(200, this.bossesConfig.getInt("tracked-mobs." + mobType + ".bedrock-visual.spawn-delay-ticks", 10)));
     }
 
     public int getBedrockVisualSyncIntervalTicks(String mobType) {
-        return Math.max(1, Math.min(40, this.config.getInt("tracked-mobs." + mobType + ".bedrock-visual.sync-interval-ticks", 2)));
+        return Math.max(1, Math.min(40, this.bossesConfig.getInt("tracked-mobs." + mobType + ".bedrock-visual.sync-interval-ticks", 2)));
     }
 
     public double getBedrockVisualModelCheckRadius(String mobType) {
-        return this.clampedBedrockRadius("tracked-mobs." + mobType + ".bedrock-visual.model-check-radius", 4.0);
+        return this.clampedBedrockRadius(this.bossesConfig, "tracked-mobs." + mobType + ".bedrock-visual.model-check-radius", 4.0);
     }
 
     public boolean shouldHideNearbyModelParts(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.hide-nearby-model-parts", true);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.hide-nearby-model-parts", true);
     }
 
     public double getModelPartHideRadius(String mobType) {
-        return this.clampedBedrockRadius("tracked-mobs." + mobType + ".bedrock-visual.model-part-hide-radius", 4.0);
+        return this.clampedBedrockRadius(this.bossesConfig, "tracked-mobs." + mobType + ".bedrock-visual.model-part-hide-radius", 4.0);
     }
 
     public boolean shouldForwardBedrockProxyDamage(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.forward-proxy-damage", true);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.forward-proxy-damage", true);
     }
 
     public boolean isBedrockVisualSilent(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.silent", true);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.silent", true);
     }
 
     public boolean isBedrockVisualNameVisible(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.name-visible", true);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.name-visible", true);
+    }
+
+    public boolean isBedrockVisualEquipmentEnabled(String mobType) {
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".bedrock-visual.equipment.enabled", true);
+    }
+
+    public int getBedrockVisualVisibilityRefreshIntervalTicks() {
+        return Math.max(5, Math.min(200, this.intWithLegacy(
+                "integrations.bedrock-visuals.limits.visibility-refresh-interval-ticks",
+                "security.bedrock-visuals.visibility-refresh-interval-ticks",
+                20)));
+    }
+
+    public double getBedrockVisualVisibilityRefreshRadius() {
+        double value = this.doubleWithLegacy(
+                "integrations.bedrock-visuals.limits.visibility-refresh-radius",
+                "security.bedrock-visuals.visibility-refresh-radius",
+                128.0);
+        if (!Double.isFinite(value)) {
+            value = 128.0;
+        }
+        return Math.max(16.0, Math.min(512.0, value));
+    }
+
+    public int getMaxBedrockVisualViewersPerRefresh() {
+        return Math.max(1, Math.min(500, this.intWithLegacy(
+                "integrations.bedrock-visuals.limits.max-viewers-per-refresh",
+                "security.bedrock-visuals.max-viewers-per-refresh",
+                160)));
+    }
+
+    public int getBedrockVisualModelDetectionRetries() {
+        return Math.max(0, Math.min(40, this.intWithLegacy(
+                "integrations.bedrock-visuals.limits.model-detection-retries",
+                "security.bedrock-visuals.model-detection-retries",
+                8)));
+    }
+
+    public int getBedrockVisualModelDetectionRetryIntervalTicks() {
+        return Math.max(1, Math.min(100, this.intWithLegacy(
+                "integrations.bedrock-visuals.limits.model-detection-retry-interval-ticks",
+                "security.bedrock-visuals.model-detection-retry-interval-ticks",
+                10)));
     }
 
     public EquipmentItem getBedrockVisualEquipmentItem(String mobType, String slot) {
         String path = "tracked-mobs." + mobType + ".bedrock-visual.equipment." + slot;
-        if (this.config.isString(path)) {
-            String item = this.config.getString(path, "AIR");
+        if (this.bossesConfig.isString(path)) {
+            String item = this.bossesConfig.getString(path, "AIR");
             return new EquipmentItem("VANILLA", item == null ? "AIR" : item, 1);
         }
-        ConfigurationSection section = this.config.getConfigurationSection(path);
+        ConfigurationSection section = this.bossesConfig.getConfigurationSection(path);
         if (section == null) {
             return new EquipmentItem("VANILLA", "AIR", 1);
         }
@@ -693,21 +841,23 @@ public class ConfigManager {
     }
 
     private RewardBundle readRewardBundle(String path) {
-        if (this.config.isList(path)) {
-            return new RewardBundle(this.config.getStringList(path), Collections.emptyList(), 0.0, 0.0);
+        FileConfiguration source = this.sourceForPath(path);
+        if (source.isList(path)) {
+            return new RewardBundle(source.getStringList(path), Collections.emptyList(), 0.0, 0.0);
         }
-        List<String> commands = this.config.getStringList(path + ".commands");
+        List<String> commands = source.getStringList(path + ".commands");
         List<RewardDrop> drops = this.readRewardDrops(path + ".drops");
-        double minDamage = Math.max(0.0, this.config.getDouble(path + ".min-damage", 0.0));
-        double minPercentage = Math.max(0.0, Math.min(100.0, this.config.getDouble(path + ".min-percentage", 0.0)));
+        double minDamage = Math.max(0.0, source.getDouble(path + ".min-damage", 0.0));
+        double minPercentage = Math.max(0.0, Math.min(100.0, source.getDouble(path + ".min-percentage", 0.0)));
         return new RewardBundle(commands, drops, minDamage, minPercentage);
     }
 
     private List<RewardDrop> readRewardDrops(String path) {
-        if (!this.config.isList(path)) {
+        FileConfiguration source = this.sourceForPath(path);
+        if (!source.isList(path)) {
             return Collections.emptyList();
         }
-        List<Map<?, ?>> rawDrops = this.config.getMapList(path);
+        List<Map<?, ?>> rawDrops = source.getMapList(path);
         if (rawDrops.isEmpty()) {
             return Collections.emptyList();
         }
@@ -741,8 +891,8 @@ public class ConfigManager {
         return drops;
     }
 
-    private double clampedBedrockRadius(String path, double fallback) {
-        double value = this.config.getDouble(path, fallback);
+    private double clampedBedrockRadius(FileConfiguration source, String path, double fallback) {
+        double value = source.getDouble(path, fallback);
         if (!Double.isFinite(value)) {
             value = fallback;
         }
@@ -830,15 +980,23 @@ public class ConfigManager {
     }
 
     public boolean isScheduledSpawnEnabled(String mobType) {
-        return this.config.getBoolean("tracked-mobs." + mobType + ".spawn-time.enable", false);
+        return this.bossesConfig.getBoolean("tracked-mobs." + mobType + ".spawn-time.enable", false);
     }
 
     public List<String> getScheduledSpawnTimes(String mobType) {
-        return this.config.getStringList("tracked-mobs." + mobType + ".spawn-time.time");
+        return this.bossesConfig.getStringList("tracked-mobs." + mobType + ".spawn-time.time");
     }
 
     public FileConfiguration getConfig() {
         return this.config;
+    }
+
+    public FileConfiguration getBossesConfig() {
+        return this.bossesConfig;
+    }
+
+    private FileConfiguration sourceForPath(String path) {
+        return path != null && path.startsWith("tracked-mobs.") ? this.bossesConfig : this.config;
     }
 
     private boolean migrateLegacyConfig(YamlConfiguration config) {
@@ -897,10 +1055,16 @@ public class ConfigManager {
         if (defaults.contains(path)) {
             return true;
         }
-        return matchesTrackedMobSchema(path)
-                || matchesBossConditionSchema(path)
+        return matchesBossConditionSchema(path)
                 || matchesDamagePerMobSchema(path)
                 || matchesIntegrationWebhookSchema(path);
+    }
+
+    private boolean isAllowedBossesPath(String path, YamlConfiguration defaults) {
+        if (defaults.contains(path)) {
+            return true;
+        }
+        return matchesTrackedMobSchema(path);
     }
 
     private boolean matchesTrackedMobSchema(String path) {
@@ -923,6 +1087,7 @@ public class ConfigManager {
                 "bedrock-visual.only-when-modeled", "bedrock-visual.spawn-delay-ticks", "bedrock-visual.sync-interval-ticks",
                 "bedrock-visual.model-check-radius", "bedrock-visual.hide-nearby-model-parts", "bedrock-visual.model-part-hide-radius",
                 "bedrock-visual.forward-proxy-damage", "bedrock-visual.silent", "bedrock-visual.name-visible", "bedrock-visual.equipment",
+                "bedrock-visual.equipment.enabled",
                 "bedrock-visual.equipment.main-hand", "bedrock-visual.equipment.off-hand", "bedrock-visual.equipment.helmet",
                 "bedrock-visual.equipment.chestplate", "bedrock-visual.equipment.leggings", "bedrock-visual.equipment.boots"
         ).contains(relative) || relative.matches("rewards\\.top-[1-9][0-9]*")) {

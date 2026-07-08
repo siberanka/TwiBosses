@@ -33,10 +33,10 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 ## Installation
 
-1. Download `TwiBosses-1.0.8.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.9.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
-4. Edit `plugins/TwiBosses/config.yml` and `plugins/TwiBosses/languages/*.yml`.
+4. Edit `plugins/TwiBosses/config.yml`, `plugins/TwiBosses/bosses.yml`, and `plugins/TwiBosses/languages/*.yml`.
 5. Run `/twiboss reload` or restart the server.
 
 ## Commands
@@ -85,9 +85,15 @@ plugins/TwiBosses/config.yml
 | `security` | Rate limits, command validation, reward limits, and anti-abuse caps. |
 | `integrations` | Holograms, Bedrock visual proxies, and Discord webhooks. |
 | `display` | Titles, action bar, top damage display, sounds, and hologram toggles. |
-| `tracked-mobs` | Boss-specific respawn, timeout, Bedrock visual, reward, and schedule settings. |
+| `bosses.yml` | Tracked MythicMobs, respawn, timeout, Bedrock visual, reward, and schedule settings. |
 
-Older config paths from previous releases are migrated into this layout during startup or `/twiboss reload`. The previous file is backed up before repair.
+Boss definitions are stored in:
+
+```text
+plugins/TwiBosses/bosses.yml
+```
+
+Older `config.yml -> tracked-mobs` definitions are migrated into `bosses.yml` during startup or `/twiboss reload`. The previous files are backed up before repair.
 
 Rank rewards can use the legacy command list format or the structured format below. Structured rewards support console commands and physical drops at the boss death location.
 
@@ -177,6 +183,12 @@ This feature is disabled by default and requires Floodgate on the backend server
 integrations:
   bedrock-visuals:
     enabled: true
+    limits:
+      visibility-refresh-interval-ticks: 20
+      visibility-refresh-radius: 128.0
+      max-viewers-per-refresh: 160
+      model-detection-retries: 8
+      model-detection-retry-interval-ticks: 10
 
 tracked-mobs:
   EliteSkeleton:
@@ -187,6 +199,7 @@ tracked-mobs:
       only-when-modeled: true
       forward-proxy-damage: true
       equipment:
+        enabled: true
         main-hand:
           provider: VANILLA
           item: BOW
@@ -195,6 +208,8 @@ tracked-mobs:
 ```
 
 `modeled: auto` checks common ModelEngine and BetterModel markers and nearby model part entities. Use `modeled: true` only when a specific boss must always use the Bedrock proxy. `only-when-modeled: true` keeps non-modeled MythicMobs unchanged for Bedrock players.
+
+Visibility is refreshed for nearby players at a bounded interval. This covers bosses spawned before a Bedrock player enters the area, bosses spawned away from Bedrock players, delayed model parts, teleports, joins, and world changes without sending constant per-tick visibility work to every online player.
 
 Bedrock hits on the proxy can be forwarded to the real MythicMob, so existing damage rankings, thresholds, and rewards continue to use the real boss session. Proxy hit forwarding is rate-limited and damage-capped:
 
@@ -206,7 +221,7 @@ integrations:
       max-forwarded-damage: 1000.0
 ```
 
-Equipment slots support vanilla items and the same custom item providers used by reward drops: `VANILLA`, `MYTHICMOBS`, `ITEMSADDER`, `NEXO`, and `CRAFTENGINE`.
+`equipment.enabled: false` shows the Bedrock vanilla mob without configured held items or armor. When enabled, equipment slots support vanilla items and the same custom item providers used by reward drops: `VANILLA`, `MYTHICMOBS`, `ITEMSADDER`, `NEXO`, and `CRAFTENGINE`.
 
 The Bedrock proxy syncs position, yaw, pitch, fire state, configured equipment, visible health ratio, hurt animation, and death animation from the real boss session. Java players never receive the proxy view.
 
@@ -255,7 +270,7 @@ settings:
   language: tr
 ```
 
-On startup and `/twiboss reload`, TwiBosses validates `config.yml` and bundled language files. Missing entries are added, invalid entries are removed, and the previous file is backed up to:
+On startup and `/twiboss reload`, TwiBosses validates `config.yml`, `bosses.yml`, and bundled language files. Missing entries are added, invalid entries are removed, and the previous file is backed up to:
 
 ```text
 plugins/TwiBosses/file-backups
@@ -263,7 +278,7 @@ plugins/TwiBosses/file-backups
 
 Dynamic boss, reward, webhook, and per-mob language sections are preserved when they match the supported schema.
 
-Spawn and setspawn command tab completion reads MythicMobs' loaded mob registry, while execution still requires the mob to be configured under `tracked-mobs` so rewards, timeouts, Bedrock visuals, and duplicate-spawn protections stay consistent.
+Spawn and setspawn command tab completion reads MythicMobs' loaded mob registry, while execution still requires the mob to be configured under `bosses.yml -> tracked-mobs` so rewards, timeouts, Bedrock visuals, and duplicate-spawn protections stay consistent.
 
 Plugin-related warnings, severe errors, uncaught plugin exceptions, and detailed stack traces are written to:
 
@@ -309,6 +324,8 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Reward drops are capped per reward and per boss death.
 - Active boss damage sessions and tracked players per boss are capped to prevent bot-driven memory growth.
 - Bedrock visual proxy damage is rate-limited and capped before forwarding to the real boss.
+- Bedrock visual visibility refresh is interval, radius, and viewer-count limited.
+- Bedrock model detection retries are bounded to cover delayed ModelEngine/BetterModel parts without runaway tasks.
 - Drop stack amounts, item id length, pickup delay, chance, and scaling are clamped.
 - Player names are validated before command dispatch.
 - Boss death processing is guarded against duplicate death events.
@@ -332,7 +349,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.8.jar
+target/TwiBosses-1.0.9.jar
 ```
 
 ## Support

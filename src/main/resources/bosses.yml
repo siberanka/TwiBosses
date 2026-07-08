@@ -1,0 +1,294 @@
+# TwiBosses boss configuration
+#
+# Configure tracked MythicMobs, respawn timers, rewards, permission rewards,
+# Bedrock vanilla visuals, and per-boss schedules here.
+# Global limits, integrations, display defaults, and security rules stay in config.yml.
+
+tracked-mobs:
+  EliteSkeleton:
+    # Seconds before this boss is removed automatically if it is not killed.
+    # -1 disables timeout removal. Timeout removal does not run death rewards.
+    timeout-seconds: -1
+    respawn:
+      enabled: true
+      time: 300
+    spawn-time:
+      enable: false
+      time:
+        - "08:00:00"
+        - "12:00:00"
+        - "18:30:00"
+    bedrock-visual:
+      # When enabled, Bedrock players see this boss as a vanilla mob instead of the Java model.
+      enabled: false
+      # Bukkit EntityType name shown to Bedrock players.
+      vanilla-entity: SKELETON
+      # auto detects common ModelEngine/BetterModel parts. Use true to force, false to disable model detection.
+      modeled: auto
+      # true keeps non-modeled MythicMobs unchanged for Bedrock players.
+      only-when-modeled: true
+      # Delay lets model providers create their parts before detection.
+      spawn-delay-ticks: 10
+      # Lower values follow the real boss more closely. Keep at 2+ for busy servers.
+      sync-interval-ticks: 2
+      model-check-radius: 4.0
+      hide-nearby-model-parts: true
+      model-part-hide-radius: 4.0
+      # Bedrock hits on the vanilla proxy are forwarded to the real MythicMob.
+      forward-proxy-damage: true
+      silent: true
+      name-visible: true
+      equipment:
+        # Set enabled to false if Bedrock players should see a clean vanilla mob without held items or armor.
+        enabled: true
+        main-hand:
+          provider: VANILLA
+          item: BOW
+          amount: 1
+        off-hand: AIR
+        helmet: AIR
+        chestplate: AIR
+        leggings: AIR
+        boots: AIR
+    rewards:
+      top-1:
+        min-damage: 0
+        min-percentage: 0
+        # Commands are executed by console after security validation.
+        # Available placeholders: {player}, {rank}, {position}, {damage}, {percentage}, {mobtype}, {mobname}, {killer}
+        commands:
+          - "give {player} diamond 5"
+          - "eco give {player} 5000"
+        # provider: VANILLA, MYTHICMOBS, ITEMSADDER, NEXO, CRAFTENGINE
+        # private: true sets the dropped item owner to the rewarded player.
+        # amount-per-percent increases amount by floor(damage_percentage * value), capped by max-amount.
+        drops:
+          - provider: VANILLA
+            item: DIAMOND
+            amount: 5
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 5
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
+      top-2:
+        commands:
+          - "give {player} diamond 3"
+          - "eco give {player} 3000"
+        drops:
+          - provider: VANILLA
+            item: DIAMOND
+            amount: 3
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 3
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
+      top-3:
+        commands:
+          - "give {player} diamond 2"
+          - "eco give {player} 2000"
+        drops:
+          - provider: VANILLA
+            item: DIAMOND
+            amount: 2
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 2
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
+    participation-reward:
+      enabled: true
+      min-damage: 200
+      min-percentage: 0
+      commands:
+        - "give {player} diamond 1"
+      drops:
+        - provider: VANILLA
+          item: DIAMOND
+          amount: 1
+          chance: 1.0
+          amount-per-percent: 0.0
+          max-amount: 1
+          private: true
+          drop-at-boss: true
+          pickup-delay-ticks: 20
+          glow: false
+    lasthit-reward:
+      enabled: true
+      min-damage: 200
+      min-percentage: 0
+      commands:
+        - "give {player} diamond 1"
+      drops:
+        - provider: VANILLA
+          item: DIAMOND
+          amount: 1
+          chance: 1.0
+          amount-per-percent: 0.0
+          max-amount: 1
+          private: true
+          drop-at-boss: true
+          pickup-delay-ticks: 20
+          glow: false
+    permission-rewards:
+      # Extra rewards for players with specific permission nodes.
+      # These are checked once per boss death for every online player who dealt valid damage.
+      # The same command safety checks, item providers, drop caps, private drops, and boss-location checks are used here.
+      enabled: true
+      # false lets a player receive every matching permission package.
+      # true stops after the first matching package in the order below.
+      stop-after-first-match: false
+      rewards:
+        vip:
+          # Give this node with LuckPerms or another permission plugin.
+          permission: twibosses.reward.vip
+          min-damage: 200
+          min-percentage: 0
+          commands:
+            - "eco give {player} 1000"
+          drops:
+            - provider: VANILLA
+              item: GOLD_INGOT
+              amount: 3
+              chance: 1.0
+              amount-per-percent: 0.0
+              max-amount: 3
+              private: true
+              drop-at-boss: true
+              pickup-delay-ticks: 20
+              glow: false
+        elite:
+          permission: twibosses.reward.elite
+          min-damage: 500
+          min-percentage: 5
+          commands:
+            - "eco give {player} 2500"
+          drops:
+            # Custom item providers are also supported here: MYTHICMOBS, ITEMSADDER, NEXO, CRAFTENGINE.
+            - provider: VANILLA
+              item: EMERALD
+              amount: 2
+              chance: 1.0
+              amount-per-percent: 0.0
+              max-amount: 2
+              private: true
+              drop-at-boss: true
+              pickup-delay-ticks: 20
+              glow: true
+
+  BossZombie:
+    timeout-seconds: -1
+    respawn:
+      enabled: true
+      time: 300
+    bedrock-visual:
+      enabled: false
+      vanilla-entity: ZOMBIE
+      modeled: auto
+      only-when-modeled: true
+      spawn-delay-ticks: 10
+      sync-interval-ticks: 2
+      model-check-radius: 4.0
+      hide-nearby-model-parts: true
+      model-part-hide-radius: 4.0
+      forward-proxy-damage: true
+      silent: true
+      name-visible: true
+      equipment:
+        enabled: true
+        main-hand:
+          provider: VANILLA
+          item: IRON_SWORD
+          amount: 1
+        off-hand: AIR
+        helmet: AIR
+        chestplate: AIR
+        leggings: AIR
+        boots: AIR
+    rewards:
+      top-1:
+        commands:
+          - "give {player} netherite_ingot 2"
+          - "eco give {player} 10000"
+        drops:
+          - provider: VANILLA
+            item: NETHERITE_INGOT
+            amount: 2
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 2
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
+      top-2:
+        commands:
+          - "give {player} netherite_ingot 1"
+          - "eco give {player} 5000"
+        drops:
+          - provider: VANILLA
+            item: NETHERITE_INGOT
+            amount: 1
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 1
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
+      top-3:
+        commands:
+          - "give {player} diamond 5"
+          - "eco give {player} 3000"
+        drops:
+          - provider: VANILLA
+            item: DIAMOND
+            amount: 5
+            chance: 1.0
+            amount-per-percent: 0.0
+            max-amount: 5
+            private: true
+            drop-at-boss: true
+            pickup-delay-ticks: 20
+            glow: false
+    participation-reward:
+      enabled: true
+      min-damage: 200
+      min-percentage: 0
+      commands:
+        - "give {player} diamond 1"
+      drops:
+        - provider: VANILLA
+          item: DIAMOND
+          amount: 1
+          chance: 1.0
+          amount-per-percent: 0.0
+          max-amount: 1
+          private: true
+          drop-at-boss: true
+          pickup-delay-ticks: 20
+          glow: false
+    lasthit-reward:
+      enabled: true
+      min-damage: 200
+      min-percentage: 0
+      commands:
+        - "give {player} diamond 1"
+      drops:
+        - provider: VANILLA
+          item: DIAMOND
+          amount: 1
+          chance: 1.0
+          amount-per-percent: 0.0
+          max-amount: 1
+          private: true
+          drop-at-boss: true
+          pickup-delay-ticks: 20
+          glow: false
