@@ -449,6 +449,7 @@ public final class BedrockVisualManager implements Listener {
         int limit = this.plugin.getConfigManager().getMaxBedrockVisualViewersPerRefresh();
         double radius = this.plugin.getConfigManager().getBedrockVisualVisibilityRefreshRadius();
         double radiusSquared = radius * radius;
+        Collection<Entity> modelParts = null;
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (processed >= limit) {
                 break;
@@ -457,7 +458,14 @@ public final class BedrockVisualManager implements Listener {
                 this.debug("visibility skipped reason=outside_refresh_scope player=" + this.playerInfo(player) + " mobType=" + session.mobType() + " original=" + this.entityInfo(session.original()));
                 continue;
             }
-            this.applyVisibility(player, session);
+            boolean bedrockPlayer = this.isBedrockPlayer(player);
+            if (bedrockPlayer && modelParts == null) {
+                modelParts = this.currentModelPartCandidates(session);
+                for (Entity modelPart : modelParts) {
+                    session.modelPartIds().add(modelPart.getUniqueId());
+                }
+            }
+            this.applyVisibility(player, session, bedrockPlayer, modelParts == null ? Set.of() : modelParts);
             processed++;
         }
         this.pruneModelPartIds(session);
@@ -466,11 +474,12 @@ public final class BedrockVisualManager implements Listener {
 
     private void applyVisibility(Player player) {
         for (VisualSession session : this.sessionsByOriginal.values()) {
-            this.applyVisibility(player, session);
+            boolean bedrockPlayer = this.isBedrockPlayer(player);
+            this.applyVisibility(player, session, bedrockPlayer, bedrockPlayer ? this.currentModelPartCandidates(session) : Set.of());
         }
     }
 
-    private void applyVisibility(Player player, VisualSession session) {
+    private void applyVisibility(Player player, VisualSession session, boolean bedrockPlayer, Collection<Entity> modelParts) {
         if (player == null || !player.isOnline()) {
             return;
         }
@@ -479,13 +488,12 @@ public final class BedrockVisualManager implements Listener {
                     + " original=" + this.entityInfo(session.original()) + " proxy=" + this.entityInfo(session.proxy()));
             return;
         }
-        if (this.isBedrockPlayer(player)) {
+        if (bedrockPlayer) {
             player.hideEntity((Plugin)this.plugin, session.original());
             player.showEntity((Plugin)this.plugin, session.proxy());
             int hiddenParts = 0;
             if (this.plugin.getConfigManager().shouldHideNearbyModelParts(session.mobType())) {
-                for (Entity part : this.findModelPartCandidates(session.original(), session.mobType(),
-                        this.plugin.getConfigManager().getModelPartHideRadius(session.mobType()))) {
+                for (Entity part : modelParts) {
                     session.modelPartIds().add(part.getUniqueId());
                     player.hideEntity((Plugin)this.plugin, part);
                     hiddenParts++;
@@ -505,6 +513,14 @@ public final class BedrockVisualManager implements Listener {
         }
         this.debug("visibility applied target=java player=" + this.playerInfo(player) + " mobType=" + session.mobType()
                 + " shownOriginal=true hiddenProxy=true restoredModelParts=" + session.modelPartIds().size());
+    }
+
+    private Collection<Entity> currentModelPartCandidates(VisualSession session) {
+        if (session == null || !this.plugin.getConfigManager().shouldHideNearbyModelParts(session.mobType())) {
+            return Set.of();
+        }
+        return this.findModelPartCandidates(session.original(), session.mobType(),
+                this.plugin.getConfigManager().getModelPartHideRadius(session.mobType()));
     }
 
     private boolean shouldRefreshVisibilityFor(Player player, VisualSession session, double radiusSquared) {

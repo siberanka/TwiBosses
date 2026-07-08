@@ -3,6 +3,7 @@ package com.siberanka.twibosses.manager;
 import com.siberanka.twibosses.TwiBosses;
 import com.siberanka.twibosses.utils.ColorUtils;
 import java.text.DecimalFormat;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,30 +38,44 @@ public class DisplayManager {
         this.actionBarTask = new BukkitRunnable(){
 
             public void run() {
-                for (Player player : Bukkit.getOnlinePlayers()) {
-                    DisplayManager.this.updateActionBar(player);
-                }
+                DisplayManager.this.updateActionBars();
             }
         }.runTaskTimer((Plugin)this.plugin, 0L, (long)Math.max(1, this.plugin.getConfigManager().getActionBarInterval()));
     }
 
     public void updateActionBar(Player player) {
+        this.updateActionBars();
+    }
+
+    private void updateActionBars() {
         Map<String, Map<UUID, Double>> damageMap = this.plugin.getDamageTracker().getMobDamageMap();
         if (damageMap.isEmpty()) {
             return;
         }
-        double playerDamage = 0.0;
+        Map<UUID, Double> damageByPlayer = new HashMap<>();
         double overallTotalDamage = 0.0;
         for (Map.Entry<String, Map<UUID, Double>> mobEntry : damageMap.entrySet()) {
             Map<UUID, Double> mobDamage = mobEntry.getValue();
-            if (!mobDamage.containsKey(player.getUniqueId())) continue;
-            double damage = mobDamage.get(player.getUniqueId());
-            playerDamage += damage;
-            overallTotalDamage += mobDamage.values().stream().mapToDouble(Double::doubleValue).sum();
+            for (Map.Entry<UUID, Double> damageEntry : mobDamage.entrySet()) {
+                double damage = damageEntry.getValue() == null ? 0.0 : damageEntry.getValue();
+                if (!Double.isFinite(damage) || damage <= 0.0) {
+                    continue;
+                }
+                damageByPlayer.merge(damageEntry.getKey(), damage, Double::sum);
+                overallTotalDamage += damage;
+            }
         }
-        if (playerDamage > 0.0) {
+        if (damageByPlayer.isEmpty() || overallTotalDamage <= 0.0) {
+            return;
+        }
+        String format = this.plugin.getConfigManager().getActionBarFormat();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            double playerDamage = damageByPlayer.getOrDefault(player.getUniqueId(), 0.0);
+            if (playerDamage <= 0.0) {
+                continue;
+            }
             double percentage = overallTotalDamage > 0.0 ? playerDamage / overallTotalDamage * 100.0 : 0.0;
-            String message = this.plugin.getConfigManager().getActionBarFormat().replace("{damage}", this.damageFormat.format(playerDamage)).replace("{percentage}", this.percentageFormat.format(percentage));
+            String message = format.replace("{damage}", this.damageFormat.format(playerDamage)).replace("{percentage}", this.percentageFormat.format(percentage));
             player.spigot().sendMessage(ChatMessageType.ACTION_BAR, (BaseComponent)new TextComponent(ColorUtils.colorize(message)));
         }
     }

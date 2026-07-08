@@ -393,7 +393,7 @@ public class SpawnManager {
                     });
                 }
             }
-        }.runTaskTimerAsynchronously((Plugin)this.plugin, 0L, 20L);
+        }.runTaskTimer((Plugin)this.plugin, 0L, 20L);
     }
 
     public boolean deleteSpawnLocation(String mobType) {

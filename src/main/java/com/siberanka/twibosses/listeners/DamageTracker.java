@@ -82,7 +82,7 @@ implements Listener {
             return;
         }
         damageMap.merge(damagerId, finalDamage, Double::sum);
-        this.rebuildMobAggregate(mobType);
+        this.addMobAggregateDamage(mobType, damagerId, finalDamage);
         if (this.plugin.getConfigManager().isHealthAnnouncementsEnabled()) {
             LivingEntity entity = (LivingEntity)event.getEntity();
             double maxHealth = entity.getMaxHealth();
@@ -340,6 +340,13 @@ implements Listener {
         } else {
             this.mobDamageMap.put(mobType, aggregate);
         }
+    }
+
+    private void addMobAggregateDamage(String mobType, UUID playerId, double damage) {
+        if (mobType == null || playerId == null || !Double.isFinite(damage) || damage <= 0.0) {
+            return;
+        }
+        this.mobDamageMap.computeIfAbsent(mobType, ignored -> new HashMap<>()).merge(playerId, damage, Double::sum);
     }
 
     public static class TopDamageEntry {
