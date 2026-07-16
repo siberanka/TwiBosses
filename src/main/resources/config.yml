@@ -94,7 +94,7 @@ integrations:
       # If auto detection cannot confirm a model after retries, create the vanilla proxy anyway.
       # Keep true when Bedrock visibility is more important than strictly preserving non-modeled MythicMobs.
       fallback-when-model-undetected: true
-      # Delay lets model providers create their parts before detection.
+      # Delay registers a new boss after model providers have had time to create their parts.
       spawn-delay-ticks: 10
       # Lower values follow the real boss more closely. Keep at 2+ for busy servers.
       sync-interval-ticks: 2
@@ -119,7 +119,11 @@ integrations:
       visibility-refresh-radius: 128.0
       # Hard cap for players processed per proxy refresh to avoid spikes on crowded servers.
       max-viewers-per-refresh: 160
-      # Retries help model providers that create parts a few ticks after MythicMobs spawn.
+      # Proxy sync stops immediately when the last nearby Bedrock viewer leaves.
+      # The idle proxy is removed after this grace period to avoid spawn/remove churn at the radius border.
+      # Set 0 for immediate removal. Dormant bosses keep no proxy and run no high-frequency sync task.
+      idle-deactivation-delay-ticks: 40
+      # Retries help delayed model providers and run only while a Bedrock player is nearby.
       model-detection-retries: 8
       model-detection-retry-interval-ticks: 10
   webhooks:

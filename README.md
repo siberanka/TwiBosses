@@ -33,7 +33,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 ## Installation
 
-1. Download `TwiBosses-1.0.12.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.13.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml`, `plugins/TwiBosses/bosses.yml`, and `plugins/TwiBosses/languages/*.yml`.
@@ -201,6 +201,7 @@ integrations:
       visibility-refresh-interval-ticks: 20
       visibility-refresh-radius: 128.0
       max-viewers-per-refresh: 160
+      idle-deactivation-delay-ticks: 40
       model-detection-retries: 8
       model-detection-retry-interval-ticks: 10
 
@@ -218,9 +219,11 @@ tracked-mobs:
 
 Global Bedrock behavior lives under `config.yml -> integrations.bedrock-visuals`. Per-boss `bosses.yml -> tracked-mobs.<mob>.bedrock-visual` only selects the vanilla entity type and optional equipment shown to Bedrock players.
 
-`modeled: auto` checks common ModelEngine and BetterModel markers and nearby model part entities. `only-when-modeled: true` keeps non-modeled MythicMobs unchanged when model detection succeeds. `fallback-when-model-undetected: true` is a visibility fail-safe: if a configured boss still cannot be confirmed as modeled after the bounded retry window, TwiBosses creates the vanilla proxy anyway so Bedrock players are not left with an invisible boss.
+`modeled: auto` checks common ModelEngine and BetterModel markers and nearby model part entities. Model checks and bounded retries start only when a Bedrock player is close enough to need the visual. `only-when-modeled: true` keeps non-modeled MythicMobs unchanged when model detection succeeds. `fallback-when-model-undetected: true` is a visibility fail-safe: if a configured boss still cannot be confirmed as modeled after the bounded retry window, TwiBosses creates the vanilla proxy anyway so Bedrock players are not left with an invisible boss.
 
-Visibility is refreshed for nearby players at a bounded interval. This covers bosses spawned before a Bedrock player enters the area, bosses spawned away from Bedrock players, delayed model parts, teleports, joins, and world changes without sending constant per-tick visibility work to every online player.
+Visibility is managed by one bounded interest scheduler and a world/cell spatial index. Players in worlds without tracked bosses skip Bedrock detection, Java players never enter boss proximity matching, and Bedrock players are compared only with bosses in neighboring cells. A boss has no proxy and no high-frequency sync work until a nearby Bedrock player needs it. When the last viewer leaves, packet sync stops immediately and the idle proxy is removed after `idle-deactivation-delay-ticks`; `0` removes it on the next visibility refresh.
+
+Active proxies share one scheduler. Position and rotation packets are emitted only when those values change, while health, fire state, and invulnerability timing are updated only when necessary. This still covers delayed model parts, teleports, joins, world changes, bosses spawned before players arrive, and players entering the area later.
 
 Bedrock hits on the proxy can be forwarded to the real MythicMob, so existing damage rankings, thresholds, and rewards continue to use the real boss session. Proxy hit forwarding is rate-limited and damage-capped:
 
@@ -357,6 +360,8 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Active boss damage sessions and tracked players per boss are capped to prevent bot-driven memory growth.
 - Bedrock visual proxy damage is rate-limited and capped before forwarding to the real boss.
 - Bedrock visual visibility refresh is interval, radius, and viewer-count limited.
+- Bedrock proxies remain dormant without nearby Bedrock viewers and active proxies share one scheduler.
+- World/cell interest indexing prevents all-player/all-boss pair scans.
 - Bedrock model detection retries are bounded to cover delayed ModelEngine/BetterModel parts without runaway tasks.
 - Bedrock visual fallback proxy creation prevents invisible modeled bosses when model detection cannot confirm provider metadata.
 - Diagnostic debug logging is opt-in and size-capped.
@@ -383,7 +388,7 @@ mvn clean package
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.12.jar
+target/TwiBosses-1.0.13.jar
 ```
 
 ## Support

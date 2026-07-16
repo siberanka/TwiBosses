@@ -838,6 +838,11 @@ public class ConfigManager {
                 160)));
     }
 
+    public int getBedrockVisualIdleDeactivationDelayTicks() {
+        return Math.max(0, Math.min(1200,
+                this.config.getInt("integrations.bedrock-visuals.limits.idle-deactivation-delay-ticks", 40)));
+    }
+
     public int getBedrockVisualModelDetectionRetries() {
         return Math.max(0, Math.min(40, this.intWithLegacy(
                 "integrations.bedrock-visuals.limits.model-detection-retries",

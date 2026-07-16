@@ -181,6 +181,7 @@ logs:
   bedrock-visual-invalid-entity: "{mobtype} üçün keçərsiz Bedrock görünüş entity-si: {entity}"
   bedrock-visual-invalid-equipment: "{mobtype} {slot} slotu üçün keçərsiz Bedrock görünüş avadanlığı atlandı."
   bedrock-visual-created: "{mobtype} üçün Bedrock görünüş proxy-si {entity} olaraq yaradıldı."
+  bedrock-visual-create-failed: "{mobtype} üçün Bedrock görünüş proxy-si yaradıla bilmədi."
   hologram-fancy: "Hologramlar üçün FancyHolograms istifadə edilir."
   hologram-fancy-missing: "FancyHolograms tapılmadı, hologramlar deaktiv edildi."
   hologram-decent: "Hologramlar üçün DecentHolograms istifadə edilir."

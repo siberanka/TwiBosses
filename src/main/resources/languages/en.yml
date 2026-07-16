@@ -181,6 +181,7 @@ logs:
   bedrock-visual-invalid-entity: "Invalid Bedrock visual entity for {mobtype}: {entity}"
   bedrock-visual-invalid-equipment: "Skipped invalid Bedrock visual equipment for {mobtype} slot {slot}."
   bedrock-visual-created: "Bedrock visual proxy created for {mobtype} as {entity}."
+  bedrock-visual-create-failed: "Failed to create the Bedrock visual proxy for {mobtype}."
   hologram-fancy: "Using FancyHolograms for holograms."
   hologram-fancy-missing: "FancyHolograms not found, disabling holograms."
   hologram-decent: "Using DecentHolograms for holograms."
