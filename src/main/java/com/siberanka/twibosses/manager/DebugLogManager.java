@@ -11,18 +11,25 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 public final class DebugLogManager {
+    private static final int QUEUE_CAPACITY = 512;
+    private static final int MAX_CATEGORY_LENGTH = 64;
+    private static final int MAX_MESSAGE_LENGTH = 8192;
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS z").withZone(ZoneId.systemDefault());
 
     private final TwiBosses plugin;
+    private final File dataFolder;
     private final File logFile;
-    private final Object lock = new Object();
-    private boolean enabled;
-    private long maxSizeBytes = 1024L * 1024L;
-    private int maxArchives = 3;
+    private final BoundedAsyncLogWriter<DebugEntry> writer;
+    private volatile boolean enabled;
+    private volatile long maxSizeBytes = 1024L * 1024L;
+    private volatile int maxArchives = 3;
+    private volatile String queueOverflowTemplate = "Debug log queue full; dropped {count} entries.";
 
     public DebugLogManager(TwiBosses plugin) {
         this.plugin = plugin;
-        this.logFile = new File(plugin.getDataFolder(), "debug.log");
+        this.dataFolder = plugin.getDataFolder();
+        this.logFile = new File(this.dataFolder, "debug.log");
+        this.writer = new BoundedAsyncLogWriter<>("TwiBosses-DebugLog", QUEUE_CAPACITY, this::writeEntry);
     }
 
     public void reload() {
@@ -34,7 +41,9 @@ public final class DebugLogManager {
         this.enabled = configManager.isDebugLogEnabled();
         this.maxSizeBytes = Math.max(64L * 1024L, (long)configManager.getDebugLogMaxSizeKb() * 1024L);
         this.maxArchives = Math.max(1, configManager.getDebugLogMaxArchives());
-        this.log("debug", "Debug logging " + (this.enabled ? "enabled" : "disabled") + ".");
+        if (this.plugin.getLanguageManager() != null) {
+            this.queueOverflowTemplate = this.plugin.getLanguageManager().raw("logs.debug-log-queue-overflow");
+        }
     }
 
     public boolean isEnabled() {
@@ -45,22 +54,38 @@ public final class DebugLogManager {
         if (!this.enabled) {
             return;
         }
-        synchronized (this.lock) {
-            try {
-                File folder = this.plugin.getDataFolder();
-                if (!folder.exists() && !folder.mkdirs()) {
-                    return;
-                }
-                this.rotateIfNeeded();
-                String line = "[" + TIMESTAMP.format(Instant.now()) + "] "
-                        + "[thread=" + Thread.currentThread().getName() + "] "
-                        + "[" + clean(category) + "] "
-                        + clean(message) + System.lineSeparator();
-                Files.writeString(this.logFile.toPath(), line, StandardCharsets.UTF_8,
-                        java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-            } catch (IOException ignored) {
-            }
+        this.writer.submit(new DebugEntry(
+                Instant.now(),
+                clean(Thread.currentThread().getName(), 128),
+                clean(category, MAX_CATEGORY_LENGTH),
+                clean(message, MAX_MESSAGE_LENGTH)));
+    }
+
+    public void shutdown() {
+        this.enabled = false;
+        this.writer.close();
+    }
+
+    private void writeEntry(DebugEntry entry, long droppedBefore) throws IOException {
+        if (!this.dataFolder.exists() && !this.dataFolder.mkdirs()) {
+            return;
         }
+        this.rotateIfNeeded();
+        StringBuilder output = new StringBuilder(256);
+        if (droppedBefore > 0L) {
+            output.append("[").append(TIMESTAMP.format(Instant.now())).append("] ")
+                    .append("[thread=TwiBosses-DebugLog] [logger] ")
+                    .append(this.queueOverflowTemplate.replace("{count}", Long.toString(droppedBefore)))
+                    .append(System.lineSeparator());
+        }
+        if (entry != null) {
+            output.append("[").append(TIMESTAMP.format(entry.timestamp())).append("] ")
+                    .append("[thread=").append(entry.threadName()).append("] ")
+                    .append("[").append(entry.category()).append("] ")
+                    .append(entry.message()).append(System.lineSeparator());
+        }
+        Files.writeString(this.logFile.toPath(), output.toString(), StandardCharsets.UTF_8,
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
     }
 
     private void rotateIfNeeded() throws IOException {
@@ -80,7 +105,14 @@ public final class DebugLogManager {
         }
     }
 
-    private static String clean(String value) {
-        return value == null ? "" : value.replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]", "");
+    private static String clean(String value, int maxLength) {
+        if (value == null) {
+            return "";
+        }
+        String bounded = value.length() > maxLength ? value.substring(0, maxLength) : value;
+        return bounded.replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]", "");
+    }
+
+    private record DebugEntry(Instant timestamp, String threadName, String category, String message) {
     }
 }

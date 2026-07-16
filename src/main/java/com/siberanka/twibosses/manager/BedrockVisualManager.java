@@ -65,6 +65,17 @@ public final class BedrockVisualManager implements Listener {
     private final Map<UUID, Deque<Long>> proxyHitWindows = new HashMap<>();
     private final Map<UUID, BukkitTask> pendingSessionTasks = new HashMap<>();
     private final Map<UUID, BedrockStatus> bedrockStatusCache = new HashMap<>();
+    private final List<VisualSession> sessionSnapshot = new ArrayList<>();
+    private final List<VisualSession> activeSessionSnapshot = new ArrayList<>();
+    private final List<VisualSession> nearbySessionBuffer = new ArrayList<>();
+    private final List<Player> bedrockPlayerBuffer = new ArrayList<>();
+    private final Set<UUID> onlinePlayerIdBuffer = new HashSet<>();
+    private final Set<UUID> leavingViewerBuffer = new HashSet<>();
+    private final Set<UUID> joiningViewerBuffer = new HashSet<>();
+    private final Set<UUID> newModelPartIdBuffer = new HashSet<>();
+    private final Set<Entity> modelPartBuffer = new HashSet<>();
+    private final Set<VisualSession> reconcileSessionBuffer = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+    private final BossSpatialIndex spatialIndex = new BossSpatialIndex();
     private BukkitTask interestTask;
     private BukkitTask syncTask;
     private BukkitTask cleanupTask;
@@ -371,7 +382,8 @@ public final class BedrockVisualManager implements Listener {
         }
         Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
         if (onlinePlayers.isEmpty()) {
-            for (VisualSession session : new ArrayList<>(this.activeSessions)) {
+            this.snapshotActiveSessions();
+            for (VisualSession session : this.activeSessionSnapshot) {
                 this.reconcileViewers(session, Set.of());
             }
             this.bedrockStatusCache.clear();
@@ -381,26 +393,30 @@ public final class BedrockVisualManager implements Listener {
 
         double radius = this.plugin.getConfigManager().getBedrockVisualVisibilityRefreshRadius();
         double radiusSquared = radius * radius;
-        BossSpatialIndex index = new BossSpatialIndex(radius);
-        for (VisualSession session : new ArrayList<>(this.sessionsByOriginal.values())) {
+        this.spatialIndex.reset(radius);
+        this.sessionSnapshot.clear();
+        this.sessionSnapshot.addAll(this.sessionsByOriginal.values());
+        for (VisualSession session : this.sessionSnapshot) {
+            session.candidateViewerIds.clear();
             if (!this.isValidLiving(session.original) || session.original.isDead()) {
                 this.destroySession(session, false);
                 continue;
             }
-            index.add(session);
+            this.spatialIndex.add(session);
         }
 
-        List<Player> bedrockPlayers = new ArrayList<>();
-        Set<UUID> onlinePlayerIds = new HashSet<>();
+        this.bedrockPlayerBuffer.clear();
+        this.onlinePlayerIdBuffer.clear();
         for (Player player : onlinePlayers) {
-            onlinePlayerIds.add(player.getUniqueId());
-            if (player.isOnline() && index.hasWorld(player.getWorld().getUID()) && this.isBedrockPlayer(player)) {
-                bedrockPlayers.add(player);
+            this.onlinePlayerIdBuffer.add(player.getUniqueId());
+            if (player.isOnline() && this.spatialIndex.hasWorld(player.getWorld().getUID()) && this.isBedrockPlayer(player)) {
+                this.bedrockPlayerBuffer.add(player);
             }
         }
-        this.bedrockStatusCache.keySet().removeIf(id -> !onlinePlayerIds.contains(id));
-        if (bedrockPlayers.isEmpty()) {
-            for (VisualSession session : new ArrayList<>(this.activeSessions)) {
+        this.bedrockStatusCache.keySet().removeIf(id -> !this.onlinePlayerIdBuffer.contains(id));
+        if (this.bedrockPlayerBuffer.isEmpty()) {
+            this.snapshotActiveSessions();
+            for (VisualSession session : this.activeSessionSnapshot) {
                 this.reconcileViewers(session, Set.of());
             }
             this.stopSyncTaskIfIdle();
@@ -408,44 +424,49 @@ public final class BedrockVisualManager implements Listener {
         }
 
         int viewerLimit = this.plugin.getConfigManager().getMaxBedrockVisualViewersPerRefresh();
-        Map<VisualSession, Set<UUID>> nearbyBySession = new IdentityHashMap<>();
-        for (Player player : bedrockPlayers) {
+        int nearbySessionCount = 0;
+        this.reconcileSessionBuffer.clear();
+        for (Player player : this.bedrockPlayerBuffer) {
             Location playerLocation = player.getLocation();
-            for (VisualSession session : index.nearby(playerLocation)) {
+            this.spatialIndex.collectNearby(playerLocation, this.nearbySessionBuffer);
+            for (VisualSession session : this.nearbySessionBuffer) {
                 if (!this.isWithinRadius(playerLocation, session.original.getLocation(), radiusSquared)) {
                     continue;
                 }
-                Set<UUID> viewers = nearbyBySession.computeIfAbsent(session, ignored -> new HashSet<>());
-                if (viewers.size() < viewerLimit) {
-                    viewers.add(player.getUniqueId());
+                if (session.candidateViewerIds.size() < viewerLimit) {
+                    if (session.candidateViewerIds.isEmpty()) {
+                        nearbySessionCount++;
+                    }
+                    session.candidateViewerIds.add(player.getUniqueId());
+                    this.reconcileSessionBuffer.add(session);
                 }
             }
         }
 
-        Set<VisualSession> sessionsToReconcile = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        sessionsToReconcile.addAll(this.activeSessions);
-        sessionsToReconcile.addAll(nearbyBySession.keySet());
-        for (VisualSession session : sessionsToReconcile) {
-            this.reconcileViewers(session, nearbyBySession.getOrDefault(session, Set.of()));
+        this.reconcileSessionBuffer.addAll(this.activeSessions);
+        for (VisualSession session : this.reconcileSessionBuffer) {
+            this.reconcileViewers(session, session.candidateViewerIds);
         }
+        int finalNearbySessionCount = nearbySessionCount;
         this.debug(() -> "interest refresh registered=" + this.sessionsByOriginal.size()
-                + " active=" + this.activeSessions.size() + " bedrockPlayers=" + bedrockPlayers.size()
-                + " nearbySessions=" + nearbyBySession.size());
+                + " active=" + this.activeSessions.size() + " bedrockPlayers=" + this.bedrockPlayerBuffer.size()
+                + " nearbySessions=" + finalNearbySessionCount);
     }
 
     private void reconcileViewers(VisualSession session, Set<UUID> newViewers) {
         if (!this.sessionsByOriginal.containsKey(session.original.getUniqueId())) {
             return;
         }
-        Set<UUID> leaving = new HashSet<>(session.viewerIds);
-        leaving.removeAll(newViewers);
-        for (UUID playerId : leaving) {
+        this.leavingViewerBuffer.clear();
+        this.leavingViewerBuffer.addAll(session.viewerIds);
+        this.leavingViewerBuffer.removeAll(newViewers);
+        for (UUID playerId : this.leavingViewerBuffer) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null && player.isOnline()) {
                 this.restoreOriginalForViewer(player, session);
             }
         }
-        session.viewerIds.removeAll(leaving);
+        session.viewerIds.removeAll(this.leavingViewerBuffer);
 
         if (newViewers.isEmpty()) {
             session.idleRefreshes++;
@@ -467,31 +488,32 @@ public final class BedrockVisualManager implements Listener {
         }
         this.syncSession(session);
 
-        Set<UUID> joining = new HashSet<>(newViewers);
-        joining.removeAll(session.viewerIds);
+        this.joiningViewerBuffer.clear();
+        this.joiningViewerBuffer.addAll(newViewers);
+        this.joiningViewerBuffer.removeAll(session.viewerIds);
         Collection<Entity> currentParts = this.currentModelPartCandidates(session);
-        Set<UUID> newPartIds = new HashSet<>();
+        this.newModelPartIdBuffer.clear();
         for (Entity part : currentParts) {
             if (session.modelPartIds.add(part.getUniqueId())) {
-                newPartIds.add(part.getUniqueId());
+                this.newModelPartIdBuffer.add(part.getUniqueId());
             }
         }
         this.pruneModelPartIds(session);
 
-        for (UUID playerId : joining) {
+        for (UUID playerId : this.joiningViewerBuffer) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null && player.isOnline()) {
                 this.applyBedrockVisibility(player, session, currentParts);
                 session.viewerIds.add(playerId);
             }
         }
-        if (!newPartIds.isEmpty()) {
+        if (!this.newModelPartIdBuffer.isEmpty()) {
             for (UUID playerId : session.viewerIds) {
                 Player player = Bukkit.getPlayer(playerId);
                 if (player == null || !player.isOnline()) {
                     continue;
                 }
-                for (UUID partId : newPartIds) {
+                for (UUID partId : this.newModelPartIdBuffer) {
                     Entity part = Bukkit.getEntity(partId);
                     if (part != null) {
                         player.hideEntity((Plugin)this.plugin, part);
@@ -623,7 +645,8 @@ public final class BedrockVisualManager implements Listener {
         long interval = this.plugin.getConfigManager().getBedrockVisualSyncIntervalTicks("");
         this.syncTask = this.plugin.getServer().getScheduler().runTaskTimer((Plugin)this.plugin, () -> {
             boolean hasViewers = false;
-            for (VisualSession session : new ArrayList<>(this.activeSessions)) {
+            this.snapshotActiveSessions();
+            for (VisualSession session : this.activeSessionSnapshot) {
                 if (session.viewerIds.isEmpty()) {
                     continue;
                 }
@@ -653,6 +676,11 @@ public final class BedrockVisualManager implements Listener {
         return false;
     }
 
+    private void snapshotActiveSessions() {
+        this.activeSessionSnapshot.clear();
+        this.activeSessionSnapshot.addAll(this.activeSessions);
+    }
+
     private void syncSession(VisualSession session) {
         LivingEntity original = session.original;
         LivingEntity proxy = session.proxy;
@@ -674,7 +702,7 @@ public final class BedrockVisualManager implements Listener {
             return;
         }
         if (proxyLocation.distanceSquared(originalLocation) > POSITION_EPSILON_SQUARED
-                || rotationDifference(proxyLocation.getYaw(), originalLocation.getYaw()) > ROTATION_EPSILON
+                || BedrockVisualMath.rotationDifference(proxyLocation.getYaw(), originalLocation.getYaw()) > ROTATION_EPSILON
                 || Math.abs(proxyLocation.getPitch() - originalLocation.getPitch()) > ROTATION_EPSILON) {
             proxy.teleport(originalLocation);
         }
@@ -803,11 +831,12 @@ public final class BedrockVisualManager implements Listener {
     }
 
     private Collection<Entity> currentModelPartCandidates(VisualSession session) {
+        this.modelPartBuffer.clear();
         if (!this.plugin.getConfigManager().shouldHideNearbyModelParts(session.mobType)) {
-            return Set.of();
+            return this.modelPartBuffer;
         }
         return this.findModelPartCandidates(session.original, session.mobType,
-                this.plugin.getConfigManager().getModelPartHideRadius(session.mobType));
+                this.plugin.getConfigManager().getModelPartHideRadius(session.mobType), this.modelPartBuffer);
     }
 
     private void pruneModelPartIds(VisualSession session) {
@@ -829,11 +858,11 @@ public final class BedrockVisualManager implements Listener {
             return true;
         }
         double radius = this.plugin.getConfigManager().getBedrockVisualModelCheckRadius(mobType);
-        return !this.findModelPartCandidates(original, mobType, radius).isEmpty();
+        return !this.findModelPartCandidates(original, mobType, radius, this.modelPartBuffer).isEmpty();
     }
 
-    private Collection<Entity> findModelPartCandidates(LivingEntity original, String mobType, double radius) {
-        Set<Entity> candidates = new HashSet<>();
+    private Collection<Entity> findModelPartCandidates(LivingEntity original, String mobType, double radius, Set<Entity> candidates) {
+        candidates.clear();
         if (!this.isValidLiving(original) || radius <= 0.0) {
             return candidates;
         }
@@ -1082,7 +1111,9 @@ public final class BedrockVisualManager implements Listener {
 
     private boolean isWithinRadius(Location first, Location second, double radiusSquared) {
         return first.getWorld() != null && second.getWorld() != null && first.getWorld().equals(second.getWorld())
-                && first.distanceSquared(second) <= radiusSquared;
+                && BedrockVisualMath.withinSquaredDistance(
+                        first.getX(), first.getY(), first.getZ(),
+                        second.getX(), second.getY(), second.getZ(), radiusSquared);
     }
 
     private void cancelTask(BukkitTask task) {
@@ -1129,25 +1160,27 @@ public final class BedrockVisualManager implements Listener {
                 + ":" + String.format(Locale.ROOT, "%.2f,%.2f,%.2f", location.getX(), location.getY(), location.getZ());
     }
 
-    private static float rotationDifference(float first, float second) {
-        float difference = Math.abs(first - second) % 360.0F;
-        return difference > 180.0F ? 360.0F - difference : difference;
-    }
-
     private static String safeTagPart(String value) {
         return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_\\-.]", "_");
     }
 
-    private static long cellKey(int x, int z) {
-        return ((long)x << 32) ^ (z & 0xffffffffL);
-    }
-
     private static final class BossSpatialIndex {
-        private final double cellSize;
         private final Map<UUID, Map<Long, List<VisualSession>>> cellsByWorld = new HashMap<>();
+        private final Deque<Map<Long, List<VisualSession>>> worldMapPool = new ArrayDeque<>();
+        private final Deque<List<VisualSession>> cellListPool = new ArrayDeque<>();
+        private double cellSize = 1.0;
 
-        private BossSpatialIndex(double cellSize) {
+        private void reset(double cellSize) {
             this.cellSize = Math.max(1.0, cellSize);
+            for (Map<Long, List<VisualSession>> worldCells : this.cellsByWorld.values()) {
+                for (List<VisualSession> cellSessions : worldCells.values()) {
+                    cellSessions.clear();
+                    this.cellListPool.addLast(cellSessions);
+                }
+                worldCells.clear();
+                this.worldMapPool.addLast(worldCells);
+            }
+            this.cellsByWorld.clear();
         }
 
         private void add(VisualSession session) {
@@ -1158,32 +1191,46 @@ public final class BedrockVisualManager implements Listener {
             }
             int cellX = this.cell(location.getX());
             int cellZ = this.cell(location.getZ());
-            this.cellsByWorld.computeIfAbsent(world.getUID(), ignored -> new HashMap<>())
-                    .computeIfAbsent(cellKey(cellX, cellZ), ignored -> new ArrayList<>())
-                    .add(session);
+            Map<Long, List<VisualSession>> worldCells = this.cellsByWorld.get(world.getUID());
+            if (worldCells == null) {
+                worldCells = this.worldMapPool.pollFirst();
+                if (worldCells == null) {
+                    worldCells = new HashMap<>();
+                }
+                this.cellsByWorld.put(world.getUID(), worldCells);
+            }
+            long key = BedrockVisualMath.cellKey(cellX, cellZ);
+            List<VisualSession> cellSessions = worldCells.get(key);
+            if (cellSessions == null) {
+                cellSessions = this.cellListPool.pollFirst();
+                if (cellSessions == null) {
+                    cellSessions = new ArrayList<>();
+                }
+                worldCells.put(key, cellSessions);
+            }
+            cellSessions.add(session);
         }
 
-        private Collection<VisualSession> nearby(Location location) {
+        private void collectNearby(Location location, List<VisualSession> destination) {
+            destination.clear();
             World world = location.getWorld();
             if (world == null) {
-                return Set.of();
+                return;
             }
             Map<Long, List<VisualSession>> cells = this.cellsByWorld.get(world.getUID());
             if (cells == null || cells.isEmpty()) {
-                return Set.of();
+                return;
             }
             int centerX = this.cell(location.getX());
             int centerZ = this.cell(location.getZ());
-            List<VisualSession> nearby = new ArrayList<>();
             for (int x = centerX - 1; x <= centerX + 1; x++) {
                 for (int z = centerZ - 1; z <= centerZ + 1; z++) {
-                    List<VisualSession> cellSessions = cells.get(cellKey(x, z));
+                    List<VisualSession> cellSessions = cells.get(BedrockVisualMath.cellKey(x, z));
                     if (cellSessions != null) {
-                        nearby.addAll(cellSessions);
+                        destination.addAll(cellSessions);
                     }
                 }
             }
-            return nearby;
         }
 
         private boolean hasWorld(UUID worldId) {
@@ -1191,7 +1238,7 @@ public final class BedrockVisualManager implements Listener {
         }
 
         private int cell(double coordinate) {
-            return (int)Math.floor(coordinate / this.cellSize);
+            return BedrockVisualMath.cell(coordinate, this.cellSize);
         }
     }
 
@@ -1201,6 +1248,7 @@ public final class BedrockVisualManager implements Listener {
         private final EntityType proxyType;
         private final Set<UUID> modelPartIds = new HashSet<>();
         private final Set<UUID> viewerIds = new HashSet<>();
+        private final Set<UUID> candidateViewerIds = new HashSet<>();
         private LivingEntity proxy;
         private int idleRefreshes;
         private int modelDetectionAttempts;

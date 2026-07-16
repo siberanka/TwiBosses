@@ -33,7 +33,7 @@ TwiBosses is a production-oriented MythicMobs boss tracking plugin for Spigot an
 
 ## Installation
 
-1. Download `TwiBosses-1.0.13.jar` from the latest GitHub release.
+1. Download `TwiBosses-1.0.14.jar` from the latest GitHub release.
 2. Place the jar in your server `plugins` folder.
 3. Start the server once to generate the configuration files.
 4. Edit `plugins/TwiBosses/config.yml`, `plugins/TwiBosses/bosses.yml`, and `plugins/TwiBosses/languages/*.yml`.
@@ -221,7 +221,7 @@ Global Bedrock behavior lives under `config.yml -> integrations.bedrock-visuals`
 
 `modeled: auto` checks common ModelEngine and BetterModel markers and nearby model part entities. Model checks and bounded retries start only when a Bedrock player is close enough to need the visual. `only-when-modeled: true` keeps non-modeled MythicMobs unchanged when model detection succeeds. `fallback-when-model-undetected: true` is a visibility fail-safe: if a configured boss still cannot be confirmed as modeled after the bounded retry window, TwiBosses creates the vanilla proxy anyway so Bedrock players are not left with an invisible boss.
 
-Visibility is managed by one bounded interest scheduler and a world/cell spatial index. Players in worlds without tracked bosses skip Bedrock detection, Java players never enter boss proximity matching, and Bedrock players are compared only with bosses in neighboring cells. A boss has no proxy and no high-frequency sync work until a nearby Bedrock player needs it. When the last viewer leaves, packet sync stops immediately and the idle proxy is removed after `idle-deactivation-delay-ticks`; `0` removes it on the next visibility refresh.
+Visibility is managed by one bounded interest scheduler and a world/cell spatial index. Players in worlds without tracked bosses skip Bedrock detection, Java players never enter boss proximity matching, and Bedrock players are compared only with bosses in neighboring cells. The index, candidate sets, and viewer buffers are reused between refreshes to avoid steady-state allocation pressure. A boss has no proxy and no high-frequency sync work until a nearby Bedrock player needs it. When the last viewer leaves, packet sync stops immediately and the idle proxy is removed after `idle-deactivation-delay-ticks`; `0` removes it on the next visibility refresh.
 
 Active proxies share one scheduler. Position and rotation packets are emitted only when those values change, while health, fire state, and invulnerability timing are updated only when necessary. This still covers delayed model parts, teleports, joins, world changes, bosses spawned before players arrive, and players entering the area later.
 
@@ -250,7 +250,7 @@ runtime:
       max-archives: 3
 ```
 
-When enabled, TwiBosses writes `plugins/TwiBosses/debug.log` entries for bridge detection, Bedrock player checks, model detection attempts, fallback proxy creation, visibility hide/show decisions, model part hiding, proxy damage forwarding, and cleanup. Keep it disabled during normal gameplay.
+When enabled, TwiBosses writes `plugins/TwiBosses/debug.log` entries for bridge detection, Bedrock player checks, model detection attempts, fallback proxy creation, visibility hide/show decisions, model part hiding, proxy damage forwarding, and cleanup. Keep it disabled during normal gameplay. Disk writes use one bounded background writer, so diagnostics cannot create an unbounded task backlog or pause the server thread. Oversized records are truncated and saturated queues drop excess records with a localized summary.
 
 Discord webhook endpoints are configured in one place under `integrations.webhooks.mobs`:
 
@@ -313,7 +313,7 @@ Plugin-related warnings, severe errors, uncaught plugin exceptions, and detailed
 plugins/TwiBosses/error.log
 ```
 
-The file is size-limited and rotated with `error.log.1`, `error.log.2`, and so on:
+The file is size-limited and rotated with `error.log.1`, `error.log.2`, and so on. Records are copied into a bounded background queue before disk access; queue admission never blocks the server thread, and shutdown drains accepted entries within a bounded wait:
 
 ```yaml
 runtime:
@@ -331,7 +331,7 @@ Short-lived diagnostics can be written to:
 plugins/TwiBosses/debug.log
 ```
 
-`debug.log` is disabled by default, size-limited, and rotated with the same archive style. It is intended for investigating visibility, reload, integration, or reward-flow issues without flooding the normal console log.
+`debug.log` is disabled by default, size-limited, and rotated with the same archive style. It is intended for investigating visibility, reload, integration, or reward-flow issues without flooding the normal console log. Debug and error records have fixed size limits, bounded queue capacities, and overflow summaries to prevent logging storms from becoming memory or tick-time pressure.
 
 ## Placeholders
 
@@ -362,9 +362,11 @@ TwiBosses is designed for production servers where clients may be modified or ho
 - Bedrock visual visibility refresh is interval, radius, and viewer-count limited.
 - Bedrock proxies remain dormant without nearby Bedrock viewers and active proxies share one scheduler.
 - World/cell interest indexing prevents all-player/all-boss pair scans.
+- Bedrock spatial cells, candidate sets, and viewer buffers are reused to reduce hot-path allocation pressure.
 - Bedrock model detection retries are bounded to cover delayed ModelEngine/BetterModel parts without runaway tasks.
 - Bedrock visual fallback proxy creation prevents invisible modeled bosses when model detection cannot confirm provider metadata.
 - Diagnostic debug logging is opt-in and size-capped.
+- Error and debug disk writes use bounded non-blocking queues with size-capped records and bounded shutdown draining.
 - Drop stack amounts, item id length, pickup delay, chance, and scaling are clamped.
 - Player names are validated before command dispatch.
 - Boss death processing is guarded against duplicate death events.
@@ -382,13 +384,16 @@ TwiBosses is designed for production servers where clients may be modified or ho
 ## Build
 
 ```bash
+mvn test
 mvn clean package
 ```
+
+The automated suite covers bounded logging backpressure, FIFO shutdown draining, worker-thread isolation, and Bedrock spatial/rotation boundary math.
 
 The production jar is generated at:
 
 ```text
-target/TwiBosses-1.0.13.jar
+target/TwiBosses-1.0.14.jar
 ```
 
 ## Support

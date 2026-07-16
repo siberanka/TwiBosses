@@ -182,6 +182,8 @@ logs:
   bedrock-visual-invalid-equipment: "Equipo visual Bedrock inválido omitido para {mobtype}, ranura {slot}."
   bedrock-visual-created: "Proxy visual Bedrock creado para {mobtype} como {entity}."
   bedrock-visual-create-failed: "No se pudo crear el proxy visual Bedrock para {mobtype}."
+  debug-log-queue-overflow: "La cola del registro de depuración estaba llena; se descartaron {count} entradas sin bloquear el hilo del servidor."
+  error-log-queue-overflow: "La cola del registro de errores estaba llena; se descartaron {count} entradas sin bloquear el hilo del servidor."
   hologram-fancy: "Usando FancyHolograms para hologramas."
   hologram-fancy-missing: "FancyHolograms no encontrado, hologramas desactivados."
   hologram-decent: "Usando DecentHolograms para hologramas."

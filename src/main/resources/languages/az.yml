@@ -182,6 +182,8 @@ logs:
   bedrock-visual-invalid-equipment: "{mobtype} {slot} slotu üçün keçərsiz Bedrock görünüş avadanlığı atlandı."
   bedrock-visual-created: "{mobtype} üçün Bedrock görünüş proxy-si {entity} olaraq yaradıldı."
   bedrock-visual-create-failed: "{mobtype} üçün Bedrock görünüş proxy-si yaradıla bilmədi."
+  debug-log-queue-overflow: "Debug log növbəsi dolu idi; server thread-i bloklanmadan {count} qeyd atlandı."
+  error-log-queue-overflow: "Xəta log növbəsi dolu idi; server thread-i bloklanmadan {count} qeyd atlandı."
   hologram-fancy: "Hologramlar üçün FancyHolograms istifadə edilir."
   hologram-fancy-missing: "FancyHolograms tapılmadı, hologramlar deaktiv edildi."
   hologram-decent: "Hologramlar üçün DecentHolograms istifadə edilir."

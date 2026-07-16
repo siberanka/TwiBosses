@@ -19,6 +19,8 @@ runtime:
   logging:
     error-log:
       # Writes plugin-related warnings/errors and stack traces to plugins/TwiBosses/error.log.
+      # Disk access uses a dedicated bounded queue; overflow drops records instead of blocking a server tick.
+      # Accepted records are drained for a bounded time during plugin shutdown.
       enabled: true
       # true logs WARNING and SEVERE records; false logs only SEVERE records.
       include-warnings: true
@@ -29,6 +31,7 @@ runtime:
     debug-log:
       # Writes detailed diagnostic steps to plugins/TwiBosses/debug.log.
       # Keep this disabled during normal gameplay and enable it only while investigating.
+      # Entries are size-capped and written by one bounded background worker.
       enabled: false
       max-size-kb: 1024
       max-archives: 3

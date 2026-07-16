@@ -182,6 +182,8 @@ logs:
   bedrock-visual-invalid-equipment: "Skipped invalid Bedrock visual equipment for {mobtype} slot {slot}."
   bedrock-visual-created: "Bedrock visual proxy created for {mobtype} as {entity}."
   bedrock-visual-create-failed: "Failed to create the Bedrock visual proxy for {mobtype}."
+  debug-log-queue-overflow: "The debug log queue was full; {count} entries were dropped without blocking the server thread."
+  error-log-queue-overflow: "The error log queue was full; {count} entries were dropped without blocking the server thread."
   hologram-fancy: "Using FancyHolograms for holograms."
   hologram-fancy-missing: "FancyHolograms not found, disabling holograms."
   hologram-decent: "Using DecentHolograms for holograms."

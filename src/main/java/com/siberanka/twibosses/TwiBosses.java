@@ -60,10 +60,10 @@ extends JavaPlugin {
 
     private void enablePlugin() {
         this.configManager = new ConfigManager(this);
+        this.languageManager = new LanguageManager(this);
         this.errorLogManager.reload();
         this.debugLogManager = new DebugLogManager(this);
         this.debugLogManager.reload();
-        this.languageManager = new LanguageManager(this);
         if (!VersionSupport.isSupported()) {
             this.getLogger().severe(this.languageManager.raw("logs.unsupported-version"));
             this.getLogger().severe(this.languageManager.raw("logs.current-version", LanguageManager.placeholders("version", VersionSupport.getFormattedVersion())));
@@ -134,6 +134,9 @@ extends JavaPlugin {
         if (this.languageManager != null) {
             Banner.disable(this, this.getDescription());
         }
+        if (this.debugLogManager != null) {
+            this.debugLogManager.shutdown();
+        }
         if (this.errorLogManager != null) {
             this.errorLogManager.uninstall();
         }
@@ -141,13 +144,13 @@ extends JavaPlugin {
 
     public void reloadPluginConfiguration() {
         this.configManager.reloadConfig();
+        this.languageManager.reload();
         if (this.errorLogManager != null) {
             this.errorLogManager.reload();
         }
         if (this.debugLogManager != null) {
             this.debugLogManager.reload();
         }
-        this.languageManager.reload();
         if (this.displayManager != null) {
             this.displayManager.reload();
         }
